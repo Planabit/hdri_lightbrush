@@ -1,0 +1,38 @@
+{
+    "info": {
+        "sponsor_purpose": "",
+        "mail_to": "extremeaddons@gmail.com"
+    },
+    "Products": {
+        "Cloth Simulation": {
+            "Simply Cloth": "https://blendermarket.com/products/simply-cloth/?ref=292",
+            "Simply Wrap Pro": "https://blendermarket.com/products/simply-wrap-pro/?ref=292"
+        },
+        "Fluid Simulation": {
+            "Flip Fluid": "https://gumroad.com/a/404345971"
+        },
+        "Materials": {
+            "Extreme PBR": "https://blendermarket.com/products/extreme-pbr-addon-for-blender-279-2/?ref=292",
+            "Cyber Holograms": "https://blendermarket.com/products/cyber-holograms-blender-materials/?ref=292"
+        },
+        "Mesh Tools": {
+            "Bmesh Clean": "https://blendermarket.com/products/bmesh-clean-add-on/?ref=292",
+            "Simply Fast": "https://blendermarket.com/products/simply-fast/?ref=292"
+        },
+        "Sky Simulation": {
+            "Cloudscapes": "https://blendermarket.com/products/cloudscapes/?ref=292"
+        },
+        "Tree And Plant": {
+            "Gardener": "https://blendermarket.com/products/gardener/?ref=292",
+            "GrassBlade": "https://blendermarket.com/products/grassblade/?ref=292",
+            "Vegetation": "https://blendermarket.com/products/vegetation-tree-addon-animation/?ref=292"
+        },
+        "Vehicles": {
+            "Launch Control - Auto Car Rig": "https://blendermarket.com/products/launch-control--auto-rig-for-vehicles/?ref=292",
+            "Transportation": "https://blendermarket.com/products/transportation/?ref=292"
+        },
+        "Vfx": {
+            "RBD Lab": "https://blendermarket.com/products/rbdlab/?ref=292"
+        }
+    }
+}

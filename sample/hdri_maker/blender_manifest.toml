@@ -1,0 +1,16 @@
+schema_version = "1.0.0"
+id = "hdri_maker"
+version = "3.0.120"
+name = "HDRi Maker"
+tagline = "功能强大的HDRI环境插件"
+maintainer = "xz-blender repack"
+type = "add-on"
+website = "https://hdri-maker.readthedocs.io/en/latest/"
+tags = ["Material", "Scene", "Lighting"]
+blender_version_min = "4.2.0"
+license = [
+  "SPDX:GPL-2.0-or-later",
+]
+wheels = [ "wheels/requests-2.32.3-py3-none-any.whl"]
+edition = "Studio"
+release = "OFFICIAL"

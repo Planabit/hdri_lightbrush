@@ -1,0 +1,25 @@
+{
+	"info_type": {
+		"permission": "",
+		"json_version": "",
+		"storage_method": "",
+		"blender_version": "",
+		"extreme_pbr_version": ""
+	},
+	"material_info": {
+		"license": "",
+		"author": "",
+		"author_website": "",
+		"license_link": ""
+	},
+	"group_inputs_properties": {
+		"": ""
+	},
+	"material_properties": {
+		"use_screen_refraction": "",
+		"use_sss_translucency": "",
+		"blend_method": "",
+		"shadow_method": "",
+		"use_backface_culling": ""
+	}
+}

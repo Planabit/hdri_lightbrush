@@ -1,0 +1,38 @@
+{
+    "date": "",
+    "storage_info": {
+        "permission": "Andrew_D",
+        "json_version": 1.0,
+        "storage_method": "ENVIRONMENT_IMAGE",
+        "blender_version": [
+            3,
+            4,
+            0
+        ],
+        "hdri_makerversion": [
+            3,
+            0,
+            100
+        ],
+        "date": "16/01/2023"
+    },
+    "material_info": {
+        "material_name": "Xiequ Yuan",
+        "author": "",
+        "website_name": "polyhaven",
+        "website_url": "https://polyhaven.com/",
+        "license": "Cc0",
+        "license_description": "You may use this background (image) for any purpose, including commercial work. You don't need to give credit or attribution when using them.",
+        "license_link": "https://creativecommons.org/choose/zero/"
+    },
+    "group_inputs_properties": {},
+    "material_properties": {
+        "use_screen_refraction": false,
+        "use_sss_translucency": false,
+        "blend_method": "OPAQUE",
+        "shadow_method": "OPAQUE",
+        "use_backface_culling": false,
+        "alpha_threshold": 0.5,
+        "refraction_depth": 0.0
+    }
+}

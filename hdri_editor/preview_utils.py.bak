@@ -1,0 +1,80 @@
+import os
+import bpy
+import bpy.utils.previews
+
+# Preview collections
+preview_collections = {}
+
+def refresh_preview_collection():
+    """Refresh the preview collection"""
+    pcoll = preview_collections.get("main")
+    if pcoll:
+        bpy.utils.previews.remove(pcoll)
+        preview_collections.clear()
+
+_last_enum_items = []
+
+def refresh_enum_items():
+    """Force refresh enum items"""
+    global _last_enum_items
+    pcoll = preview_collections.get("main")
+    if pcoll:
+        bpy.utils.previews.remove(pcoll)
+        preview_collections.clear()
+    pcoll = bpy.utils.previews.new()
+    preview_collections["main"] = pcoll
+    
+    # Start with default empty option
+    enum_items = [('NONE', 'None', '', 0, 0)]
+    
+    # Add all images
+    for i, image in enumerate(bpy.data.images, start=1):
+        if image.type == 'IMAGE':  # Only show actual images
+            # Load preview
+            thumb = pcoll.load(image.name, image.filepath if image.filepath else "", 'IMAGE')
+            thumb.image_name = image.name
+            enum_items.append((image.name, image.name, "", pcoll[image.name].icon_id, i))
+    
+    _last_enum_items = enum_items
+    return enum_items
+
+def refresh_preview_collection(image_name=None):
+    """Refresh the preview collection and return True if image_name is in the new items"""
+    global _last_enum_items
+    enum_items = refresh_enum_items()
+    if image_name:
+        return any(item[0] == image_name for item in enum_items)
+    return True
+
+def enum_previews(self, context):
+    """Callback for hdri_previews items"""
+    global _last_enum_items
+    return _last_enum_items
+
+def update_preview(self, context):
+    """Preview image selection callback"""
+    pcoll = preview_collections.get("main")
+    if pcoll and self.hdri_previews in pcoll:
+        image_name = pcoll[self.hdri_previews].image_name
+        if image_name in bpy.data.images:
+            context.scene['hdri_editor_preview_image'] = image_name
+
+class HDRIEditorProperties(bpy.types.PropertyGroup):
+    hdri_previews: bpy.props.EnumProperty(
+        items=enum_previews,
+        name="HDRI Previews",
+        description="Preview of available HDRI images",
+        update=update_preview
+    )
+
+def register():
+    bpy.utils.register_class(HDRIEditorProperties)
+    bpy.types.Scene.hdri_editor = bpy.props.PointerProperty(type=HDRIEditorProperties)
+    
+def unregister():
+    del bpy.types.Scene.hdri_editor
+    bpy.utils.unregister_class(HDRIEditorProperties)
+    
+    for pcoll in preview_collections.values():
+        bpy.utils.previews.remove(pcoll)
+    preview_collections.clear()

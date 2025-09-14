@@ -1,0 +1,124 @@
+{
+    "update_time": 1729367395,
+    "update_interval": 7200,
+    "info": "The addon connects to this json, and shows an additional button if there is more than one key in the dictionary, the button opens a popup with buttons as many as the keys and if there are urls in the keys",
+    "manual_version": 2,
+    "docs_homepage": "https://hdri-maker.readthedocs.io/en/latest/index.html",
+    "manual_urls": {
+        "ADDON_UPDATES": {
+            "documentation": "https://hdri-maker.readthedocs.io/en/latest/preferences.html#updates-tab"
+        },
+        "COMPLETE_GROUP_BACKGROUND": {
+            "documentation": "https://hdri-maker.readthedocs.io/en/latest/world_panel.html#"
+        },
+        "DIFFUSE_GROUP_BACKGROUND": {
+            "documentation": "https://hdri-maker.readthedocs.io/en/latest/world_panel.html#"
+        },
+        "DOCS": {
+            "Docs": "https://hdri-maker.readthedocs.io/en/latest/index.html"
+        },
+        "DOME_PROJECTION_ADD_REMOVE": {
+            "documentation": "https://hdri-maker.readthedocs.io/en/latest/dome_projection_panel.html#choose-add-remove-dome"
+        },
+        "DOME_PROJECTION_GROUND_MATERIAL": {
+            "documentation": "https://hdri-maker.readthedocs.io/en/latest/dome_projection_panel.html#ground-material"
+        },
+        "DOME_PROJECTION_HOOKS": {
+            "documentation": "https://hdri-maker.readthedocs.io/en/latest/dome_projection_panel.html#dome-hooks",
+            "video tutorials": "https://hdri-maker.readthedocs.io/en/latest/video_tutorials.html#custom-dome-projection"
+        },
+        "DOME_PROJECTION_MIXER_NODE": {
+            "documentation": "https://hdri-maker.readthedocs.io/en/latest/dome_projection_panel.html#dome-color-node-group"
+        },
+        "DOME_PROJECTION_PROPERTIES": {
+            "documentation": "https://hdri-maker.readthedocs.io/en/latest/dome_projection_panel.html#dome-properties"
+        },
+        "DOME_PROJECTION_VECTORS_NODE": {
+            "documentation": "https://hdri-maker.readthedocs.io/en/latest/dome_projection_panel.html#dome-vectors-node-group"
+        },
+        "DOME_PROJECTION_WRAP": {
+            "documentation": "https://hdri-maker.readthedocs.io/en/latest/dome_projection_panel.html#dome-wrap",
+            "video tutorials": "https://hdri-maker.readthedocs.io/en/latest/video_tutorials.html#wrap-dome-ground"
+        },
+        "FAQS": {
+            "documentation": "https://hdri-maker.readthedocs.io/en/latest/faqs.html"
+        },
+        "HOW_TO_INSTALL": {
+            "documentation": "https://hdri-maker.readthedocs.io/en/latest/how_to_install.html",
+            "video tutorials": "https://hdri-maker.readthedocs.io/en/latest/video_tutorials.html#first-installation"
+        },
+        "HOW_TO_REPORT_A_BUG": {
+            "docs": "https://hdri-maker.readthedocs.io/en/latest/bugreport_info.html"
+        },
+        "INSTALL_LIBRARIES": {
+            "documentation": "https://hdri-maker.readthedocs.io/en/latest/installation.html#install-the-library"
+        },
+        "TROUBLESHOOTING": {
+            "documentation": "https://hdri-maker.readthedocs.io/en/latest/troubleshooting.html"
+        },
+        "LIBRARY_UPDATE": {
+            "documentation": "https://hdri-maker.readthedocs.io/en/latest/preferences.html#library-updates"
+        },
+        "LIGHT_GROUP_BACKGROUND": {
+            "documentation": "https://hdri-maker.readthedocs.io/en/latest/world_panel.html#"
+        },
+        "LIGHT_STUDIO_MENU": {
+            "documentation": "https://hdri-maker.readthedocs.io/en/latest/lights_panel.html#lamps-menu",
+            "video tutorials": "https://hdri-maker.readthedocs.io/en/latest/video_tutorials.html#first-installation"
+        },
+        "MAIN_PANEL": {
+            "documentation": "https://hdri-maker.readthedocs.io/en/latest/library_manager_panel.html"
+        },
+        "MAKE_ASSET_BROWSER": {
+            "documentation": "https://hdri-maker.readthedocs.io/en/latest/installation.html#create-asset-browser",
+            "video tutorials": "https://hdri-maker.readthedocs.io/en/latest/video_tutorials.html#make-asset-browser"
+        },
+        "MISSING_FILES_ASSET_BROWSER_CREATION": {
+            "documentation": "https://hdri-maker.readthedocs.io/en/latest/installation.html#missing-files-during-the-asset-browser-creation"
+        },
+        "PREFERENCES_MENU": {
+            "documentation": "https://hdri-maker.readthedocs.io/en/latest/preferences.html"
+        },
+        "REMOVE_VOLUME": {
+            "documentation": "https://hdri-maker.readthedocs.io/en/latest/preferences.html#remove-volume"
+        },
+        "SAVE_MENU": {
+            "documentation": "https://hdri-maker.readthedocs.io/en/latest/save_panel.html"
+        },
+        "SAVE_LIBRARY_TOOLS": {
+            "documentation": "https://hdri-maker.readthedocs.io/en/latest/save_panel.html#library-tools"
+        },
+        "SAVE_DANGER_ZONE": {
+            "documentation": "https://hdri-maker.readthedocs.io/en/latest/save_panel.html#danger-zone"
+        },
+        "SHADOW_CATCHER_MENU": {
+            "documentation": "https://hdri-maker.readthedocs.io/en/latest/shadow_catcher.html",
+            "tutorials": ""
+        },
+        "SHADOW_CATCHER_NODE": {
+            "documentation": "https://hdri-maker.readthedocs.io/en/latest/shadow_catcher.html#shadow-catcher-node-group-inputs"
+        },
+        "SHADOW_CATCHER_NORMAL_NODE": {
+            "documentation": "https://hdri-maker.readthedocs.io/en/latest/shadow_catcher.html#shadow-catcher-normals"
+        },
+        "SUN_STUDIO_MENU": {
+            "documentation": "https://hdri-maker.readthedocs.io/en/latest/lights_panel.html#sun-menu"
+        },
+        "UI_LIBRARY_MANAGER": {
+            "documentation": "https://hdri-maker.readthedocs.io/en/latest/preferences.html#libraries-tab"
+        },
+        "VECTOR_GROUP_BACKGROUND": {
+            "documentation": "https://hdri-maker.readthedocs.io/en/latest/world_panel.html#vector-properties"
+        },
+        "VOLUMETRIC_MENU": {
+            "documentation": "https://hdri-maker.readthedocs.io/en/latest/volumetric_panel.html",
+            "video tutorials": "https://hdri-maker.readthedocs.io/en/latest/video_tutorials.html#fog-volumetric"
+        },
+        "VOLUME_NODE_GROUP": {
+            "documentation": "https://hdri-maker.readthedocs.io/en/latest/volumetric_panel.html#volume-node-panel"
+        },
+        "TUTORIAL_PLAYLIST": {
+            "Online Tutorials": "https://hdri-maker.readthedocs.io/en/latest/video_tutorials.html"
+        }
+    }
+}

@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+.env
+.vscode/
+.idea/
+.DS_Store
+*.blend1
+*.blend2
+*.log

@@ -1,0 +1,74 @@
+{
+	"Legend": {
+		"_diffuse_xtm": {
+			"Standard": "Diffuse, Color, Albedo, BaseColor",
+			"Description": "Standard for any diffuse type image",
+			"Texture_Node": "sRGB"
+		},
+		"_specular_xtm": {
+			"Standard": "Specular, Reflection",
+			"Description": "Standard for reflections, need a Black And White map (Non-Color Node)",
+			"Texture_Node": "Non-Color"
+		},
+		"_roughness_xtm": {
+			"Standard": "Roughness (Inverted Smooth/Smoothness Map)",
+			"Description": "Standard for Roughness Map, need a Black And White map",
+			"Texture_Node": "Non-Color"
+		},
+		"_metal_xtm": {
+			"Standard": "Met, Metal, Metallic",
+			"Description": "Standard for Metal Map, need a Black and White map",
+			"Texture_Node": "Non-Color"
+		},
+		"_normal_xtm": {
+			"Standard": "Normal Map standard OpenGl",
+			"Description": "Normal maps must be in OpenGl format, so if they are made for Direct-X engines, it would be better to invert the Y's (the Green channel) to work correctly in Blender",
+			"Texture_Node": "Non-Color"
+		},
+		"_occlusion_xtm": {
+			"Standard": "OC, Occlusion Map",
+			"Description": "This is to simulate a fake environmental occlusion.",
+			"Texture_Node": "Non-Color"
+		},
+		"_displace_xtm": {
+			"Standard": "Displace, Height, Bump",
+			"Description": "This map can do double function, both as a Bump and as a Displace. It will be automatically recognized as such by Extreme PBR",
+			"Texture_Node": "Non-Color"
+		},
+		"_bump_xtm": {
+			"Standard": "Height, Bump",
+			"Description": "This map can only be a bump, it will not be recognized as a Displacement, but can be added in combination with the Displace node.",
+			"Texture_Node": "Non-Color"
+		},
+		"_emission_xtm": {
+			"Standard": "Emissive, Emission, Emi",
+			"Description": "This map can be in color. Black will act as a mask, and nothing will be illuminated where the value is black RGB - (0,0,0). It does not need additional masks to hide the lighting",
+			"Texture_Node": "sRGB"
+		},
+		"_sss_xtm": {
+			"Standard": "Subsurface, Subsurface Scattering, SSS",
+			"Description": "This map is for Subsurface Scattering. By default, the diffuse map will also act as a subsurface. But if you want to mix a Subsurface map to a Diffuse, you can also use the (_sss_strength_xtm) map which will act as a mask between the 2 maps",
+			"Texture_Node": "sRGB"
+		},
+		"_sss_strength_xtm": {
+			"Standard": "Subsurface Mask",
+			"Description": "This map, which will act as a mask, will decide where the subsurface should be shown and where not.",
+			"Texture_Node": "Non-Color"
+		},
+		"_transmission_xtm": {
+			"Standard": "Glass, Transmission",
+			"Description": "This map decides where the transmission should be.",
+			"Texture_Node": "Non-Color"
+		},
+		"_mask_xtm": {
+			"Standard": "Imperfections, Scratch, Smudge ,Fingerprint, Patterns, and much more",
+			"Description": "This map has been given a name for convenience, It can handle, colors, roughness, bump and much more in the FX, it can also turn into a normal map, so it does not need to be accompanied by other maps. It must be in Black and White",
+			"Texture_Node": "Non-Color"
+		},
+		"_transparent_xtm": {
+			"Standard": "Mask, Alpha, Opacity, Transparent",
+			"Description": "This map decides, where the material should be invisible and where not. Black (RGB-0,0,0) is completely invisible, while White (RGB-1,1,1) makes it completely visible. Basically the opposite of the other Black and White maps, where (RGB-1,1,1) is on and (RGB-0,0,0) is off.",
+			"Texture_Node": "Non-Color"
+		}
+	}
+}
