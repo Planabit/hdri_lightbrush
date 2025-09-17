@@ -1,3 +1,8 @@
+"""
+HDRI Editor addon for Blender.
+Provides tools for creating and editing studio HDRI backgrounds.
+"""
+
 bl_info = {
     "name": "HDRI Editor",
     "author": "",
@@ -9,32 +14,38 @@ bl_info = {
 }
 
 import bpy
-from . import preview_utils
+from bpy.types import Panel, Operator
 
-class HDRIEditorPanel(bpy.types.Panel):
+class HDRIEditorMainPanel(Panel):
+    """Main panel for HDRI Editor"""
     bl_label = "HDRI Editor"
-    bl_idname = "VIEW3D_PT_hdri_editor"
+    bl_idname = "VIEW3D_PT_hdri_editor_main"
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
     bl_category = 'HDRI Editor'
 
     def draw(self, context):
         layout = self.layout
-        layout.operator("hdri_editor.load_hdri", text="Load HDRI")
-        layout.operator("hdri_editor.create_black_hdri", text="Create Black HDRI (2048x1024)")
+        
+        # HDRI file operations
+        box = layout.box()
+        box.label(text="HDRI Files:")
+        box.operator("hdri_editor.load_hdri", text="Load HDRI")
+        box.operator("hdri_editor.create_black_hdri", text="Create Black HDRI")
 
         # Preview section
         box = layout.box()
         box.label(text="HDRI Preview:")
-        
-        # HDRI preview grid with thumbnails
         box.template_icon_view(context.scene.hdri_editor, "hdri_previews", 
-                            show_labels=True, scale=8)
+                             show_labels=True, scale=8)
         
-        # Show selected HDRI name
+        # Background controls
         if context.scene.hdri_editor.hdri_previews != 'NONE':
+            box = layout.box()
             box.label(text=f"Selected: {context.scene.hdri_editor.hdri_previews}")
-        
+            row = box.row(align=True)
+            row.operator("hdri_editor.set_background", text="Set as Background")
+            row.operator("hdri_editor.remove_background", text="Remove")
 # File selector and load operator
 class HDRIEditor_OT_LoadHDRI(bpy.types.Operator):
     bl_idname = "hdri_editor.load_hdri"
@@ -114,22 +125,106 @@ class HDRIEditor_OT_CreateBlackHDRI(bpy.types.Operator):
             self.report({'ERROR'}, f"Failed to create HDRI: {e}")
             return {'CANCELLED'}
 
-# Registration
-classes = [
-    HDRIEditorPanel,
+# Collection of all classes that need to be registered
+classes = (
+    HDRIEditorMainPanel,
     HDRIEditor_OT_LoadHDRI,
     HDRIEditor_OT_CreateBlackHDRI,
-]
+)
 
 def register():
-    preview_utils.register()
-    for cls in classes:
-        bpy.utils.register_class(cls)
+    """Register the addon"""
+    try:
+        # Register main classes first
+        for cls in classes:
+            try:
+                bpy.utils.register_class(cls)
+                print(f"HDRI Editor: Registered {cls.__name__}")
+            except ValueError as e:
+                print(f"HDRI Editor: Class {cls.__name__} already registered")
+
+        # Then register submodules
+        from .operators import background_tools
+        try:
+            background_tools.register()
+            print("HDRI Editor: Registered background tools")
+        except:
+            print("HDRI Editor: Background tools already registered")
+
+        from .properties import world_properties
+        try:
+            world_properties.register()
+            print("HDRI Editor: Registered world properties")
+        except:
+            print("HDRI Editor: World properties already registered")
+
+        from .ui import panels
+        try:
+            panels.register()
+            print("HDRI Editor: Registered UI panels")
+        except:
+            print("HDRI Editor: UI panels already registered")
+
+        from .utils import preview_utils
+        try:
+            preview_utils.register()
+            print("HDRI Editor: Registered preview utils")
+        except:
+            print("HDRI Editor: Preview utils already registered")
+
+        print("HDRI Editor: All modules registered successfully")
+
+    except Exception as e:
+        print(f"HDRI Editor: Error during registration: {str(e)}")
+        raise
 
 def unregister():
-    preview_utils.unregister()
-    for cls in reversed(classes):
-        bpy.utils.unregister_class(cls)
+    """Unregister the addon"""
+    try:
+        # Unregister submodules first
+        from .operators import background_tools
+        try:
+            background_tools.unregister()
+            print("HDRI Editor: Unregistered background tools")
+        except:
+            print("HDRI Editor: Background tools already unregistered")
+
+        from .properties import world_properties
+        try:
+            world_properties.unregister()
+            print("HDRI Editor: Unregistered world properties")
+        except:
+            print("HDRI Editor: World properties already unregistered")
+
+        from .ui import panels
+        try:
+            panels.unregister()
+            print("HDRI Editor: Unregistered UI panels")
+        except:
+            print("HDRI Editor: UI panels already unregistered")
+
+        from .utils import preview_utils
+        try:
+            preview_utils.unregister()
+            print("HDRI Editor: Unregistered preview utils")
+        except:
+            print("HDRI Editor: Preview utils already unregistered")
+
+        # Then unregister main classes
+        for cls in reversed(classes):
+            try:
+                bpy.utils.unregister_class(cls)
+                print(f"HDRI Editor: Unregistered {cls.__name__}")
+            except ValueError:
+                print(f"HDRI Editor: Class {cls.__name__} already unregistered")
+            except RuntimeError:
+                print(f"HDRI Editor: Failed to unregister {cls.__name__}, may be in use")
+
+        print("HDRI Editor: All modules unregistered successfully")
+
+    except Exception as e:
+        print(f"HDRI Editor: Error during unregistration: {str(e)}")
+        raise
 
 if __name__ == "__main__":
     register()
