@@ -1,4 +1,4 @@
-"""
+﻿"""
 Background operators for HDRI Editor.
 Handles all world background related operations.
 """
@@ -73,8 +73,7 @@ class HDRI_EDITOR_OT_set_background(Operator):
                     # Enable world background in viewport
                     space.shading.use_scene_world = True
                     space.shading.use_scene_world_render = True
-                    # Turn off studio lights for better HDRI visibility
-                    space.shading.studio_light = 'NONE'
+                    # Note: Don't modify studio_light when using world HDRI background
                     # Update UI
                     area.tag_redraw()
             
@@ -160,7 +159,11 @@ class HDRI_EDITOR_OT_remove_background(Operator):
                     space.shading.type = 'SOLID'
                     space.shading.use_scene_world = False
                     space.shading.use_scene_world_render = False
-                    space.shading.studio_light = 'STUDIO'  # Reset to default studio light
+                    # Reset to default studio light (use basic.sl as safe default)
+                    try:
+                        space.shading.studio_light = 'basic.sl'
+                    except:
+                        pass  # Ignore if studio light setting fails
                     # Update UI
                     area.tag_redraw()
             
@@ -171,14 +174,6 @@ class HDRI_EDITOR_OT_remove_background(Operator):
             return {'CANCELLED'}
 
 # Classes for registration
-__all__ = [
-    'HDRI_EDITOR_OT_set_background',
-    'HDRI_EDITOR_OT_update_background',
-    'HDRI_EDITOR_OT_remove_background',
-    'register',
-    'unregister'
-]
-
 classes = (
     HDRI_EDITOR_OT_set_background,
     HDRI_EDITOR_OT_update_background,
@@ -192,8 +187,10 @@ def register():
             try:
                 bpy.utils.register_class(cls)
                 print(f"HDRI Editor: Registered {cls.__name__}")
-            except ValueError as e:
+            except ValueError:
                 print(f"HDRI Editor: Class {cls.__name__} already registered")
+            except RuntimeError:
+                print(f"HDRI Editor: Failed to register {cls.__name__}, may be duplicate")
     except Exception as e:
         print(f"HDRI Editor: Error during registration: {str(e)}")
         raise

@@ -1,4 +1,4 @@
-"""
+﻿"""
 World property definitions for HDRI Editor.
 """
 
@@ -8,7 +8,7 @@ from bpy.types import PropertyGroup
 
 class HDRIEditorWorldProperties(PropertyGroup):
     """World background settings for HDRI Editor"""
-    
+
     def update_world_background(self, context):
         """Update callback for world settings"""
         try:
@@ -17,7 +17,7 @@ class HDRIEditorWorldProperties(PropertyGroup):
                     bpy.ops.hdri_editor.update_world_background()
         except Exception as e:
             print(f"HDRI Editor: Update callback error: {e}")
-    
+
     # Background strength
     background_strength: FloatProperty(
         name="Strength",
@@ -29,7 +29,7 @@ class HDRIEditorWorldProperties(PropertyGroup):
         precision=3,
         update=update_world_background
     )
-    
+
     # Background rotation
     background_rotation: FloatProperty(
         name="Rotation",
@@ -41,7 +41,7 @@ class HDRIEditorWorldProperties(PropertyGroup):
         subtype='ANGLE',
         update=update_world_background
     )
-    
+
     # Use world in viewport
     use_world_in_viewport: BoolProperty(
         name="Show in Viewport",
@@ -49,14 +49,14 @@ class HDRIEditorWorldProperties(PropertyGroup):
         default=True,
         update=update_world_background
     )
-    
+
     # Auto-update background
     auto_update: BoolProperty(
         name="Auto Update",
         description="Automatically update world when changing settings",
         default=True
     )
-    
+
     # Background blur
     background_blur: FloatProperty(
         name="Blur",
@@ -78,12 +78,12 @@ def register():
     """Register property classes and add them to scenes"""
     for cls in classes:
         bpy.utils.register_class(cls)
-    
+
     bpy.types.Scene.hdri_editor_world = bpy.props.PointerProperty(type=HDRIEditorWorldProperties)
 
 def unregister():
     """Unregister property classes and remove them from scenes"""
     del bpy.types.Scene.hdri_editor_world
-    
+
     for cls in reversed(classes):
         bpy.utils.unregister_class(cls)

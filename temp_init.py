@@ -176,7 +176,7 @@ class HDRI_EDITOR_PT_hdri_2d_simple(Panel):
         size_controls = size_box.row(align=True)
         size_controls.scale_y = 0.8
         size_controls.prop(scene, "hdri_preview_scale", text="Scale", slider=True)
-        size_controls.operator("hdri_2d_simple.fit_preview", text="Auto Fit", icon='ZOOM_ALL')
+        size_controls.operator("hdri_2d_simple.fit_preview", text="Auto Fit", icon='FULLSCREEN')
         
         # Display controls
         controls_row = col.row(align=True)
@@ -694,74 +694,9 @@ class HDRI_2D_SIMPLE_OT_save_hdri(Operator):
         self.report({'INFO'}, "Save HDRI (feature in development)")
         return {'FINISHED'}
 
-class HDRI_EDITOR_PT_world_settings(Panel):
-    """Advanced World settings panel with full functionality"""
-    bl_label = "World Settings"
-    bl_idname = "VIEW3D_PT_hdri_world_settings"
-    bl_space_type = 'VIEW_3D'
-    bl_region_type = 'UI'
-    bl_category = 'HDRI Editor'
-    bl_parent_id = "VIEW3D_PT_hdri_2d_simple"
-    bl_options = {'DEFAULT_CLOSED'}
-
-    def draw(self, context):
-        layout = self.layout
-        scene = context.scene
-        world = scene.world
-        
-        # Check if we have world properties
-        if not hasattr(scene, 'hdri_editor_world'):
-            layout.label(text="World properties not available", icon='ERROR')
-            return
-        
-        world_props = scene.hdri_editor_world
-
-        # HDRI selection and loading
-        box = layout.box()
-        box.label(text="HDRI Background", icon='WORLD')
-        
-        if scene.hdri_editor.hdri_previews != 'NONE':
-            row = box.row()
-            row.operator("hdri_editor.set_background", text="Set as Background", icon='WORLD_DATA')
-            row.operator("hdri_editor.update_background", text="Update", icon='FILE_REFRESH')
-            
-            if world and world.use_nodes:
-                box.operator("hdri_editor.remove_background", text="Remove Background", icon='X')
-        else:
-            box.label(text="No HDRI loaded", icon='INFO')
-
-        # World background settings
-        if world and world.use_nodes:
-            settings_box = layout.box()
-            settings_box.label(text="Background Settings", icon='SETTINGS')
-            
-            # Auto-update toggle
-            settings_box.prop(world_props, "auto_update")
-            
-            # Background strength
-            settings_box.prop(world_props, "background_strength")
-            
-            # Background rotation
-            settings_box.prop(world_props, "background_rotation")
-            
-            # Background blur
-            settings_box.prop(world_props, "background_blur")
-            
-            # Viewport settings
-            viewport_box = layout.box()
-            viewport_box.label(text="Viewport Display", icon='VIEW3D')
-            viewport_box.prop(world_props, "use_world_in_viewport")
-            
-            # Manual update button (when auto-update is off)
-            if not world_props.auto_update:
-                viewport_box.operator("hdri_editor.update_background", text="Manual Update", icon='FILE_REFRESH')
-        else:
-            layout.label(text="No world nodes setup", icon='INFO')
-
 # Classes for registration
 classes = (
     HDRI_EDITOR_PT_hdri_2d_simple,
-    HDRI_EDITOR_PT_world_settings,
     HDRI_2D_SIMPLE_OT_add_light,
     HDRI_2D_SIMPLE_OT_add_sun,
     HDRI_2D_SIMPLE_OT_generate_sky,

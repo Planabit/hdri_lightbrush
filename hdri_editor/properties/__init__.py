@@ -1,7 +1,12 @@
-"""Property modules for HDRI Editor"""
+"""
+Properties for HDRI Editor.
+"""
+
 from . import world_properties
 
-__all__ = ['register', 'unregister']
+__all__ = [
+    'world_properties',
+]
 
 def register():
     """Register all property classes"""
