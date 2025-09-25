@@ -23,6 +23,11 @@ class HDRIEditorMainPanel(Panel):
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
     bl_category = 'HDRI Editor'
+    
+    @classmethod
+    def poll(cls, context):
+        # Always show panel
+        return True
 
     def draw(self, context):
         layout = self.layout
@@ -33,11 +38,30 @@ class HDRIEditorMainPanel(Panel):
         box.operator("hdri_editor.load_hdri", text="Load HDRI")
         box.operator("hdri_editor.create_black_hdri", text="Create Black HDRI")
 
-        # Preview section
+        # Preview section  
         box = layout.box()
         box.label(text="HDRI Preview:")
-        box.template_icon_view(context.scene.hdri_editor, "hdri_previews", 
-                             show_labels=True, scale=8)
+        
+        # Calculate dynamic scale based on panel width
+        region = context.region
+        panel_width = region.width if region else 300
+        target_width = panel_width - 20  # Minimal margin for tight fit
+        base_icon_size = 64
+        dynamic_scale = max(3, min(20, target_width // base_icon_size))
+        
+        # Create a sub-layout without extra padding
+        col = box.column(align=True)
+        col.template_icon_view(context.scene.hdri_editor, "hdri_previews", 
+                             show_labels=False, scale=dynamic_scale, 
+                             scale_popup=1.0)
+        
+        # Add current image info if image is loaded
+        current_hdri = context.scene.hdri_editor.hdri_previews
+        if current_hdri != 'NONE' and current_hdri in bpy.data.images:
+            img = bpy.data.images[current_hdri]
+            aspect_ratio = img.size[1] / img.size[0] if img.size[0] > 0 else 0.5
+            info_text = f"Size: {img.size[0]}x{img.size[1]} | AR: {aspect_ratio:.2f}"
+            box.label(text=info_text, icon='INFO')
         
         # Background controls
         if context.scene.hdri_editor.hdri_previews != 'NONE':
@@ -65,25 +89,32 @@ class HDRIEditor_OT_LoadHDRI(bpy.types.Operator):
 
     def execute(self, context):
         try:
-            # First load the image
+            # Load the image and ensure it's properly loaded
             img = bpy.data.images.load(self.filepath, check_existing=True)
+            
+            # Ensure the image is loaded into memory
             img.reload()
             
-            # Force redraw of UI
-            context.area.tag_redraw()
-            
-            # Set to None first
-            context.scene.hdri_editor.hdri_previews = 'NONE'
-            context.scene['hdri_editor_preview_image'] = 'NONE'
-            
-            # Small delay to ensure image is loaded
-            def delayed_update():
-                context.scene.hdri_editor.hdri_previews = img.name
-                context.scene['hdri_editor_preview_image'] = img.name
+            # Force update of the image data
+            if not img.has_data:
+                # Try to pack the image to force loading
+                img.pack()
                 
-            bpy.app.timers.register(delayed_update, first_interval=0.1)
+            # Update preview system
+            context.scene.hdri_editor.hdri_previews = img.name
+            context.scene['hdri_editor_preview_image'] = img.name
             
-            self.report({'INFO'}, f"Loaded HDRI: {img.name}")
+            # Set colorspace for HDRI files
+            if self.filepath.lower().endswith(('.hdr', '.exr')):
+                img.colorspace_settings.name = 'Linear'
+            else:
+                img.colorspace_settings.name = 'sRGB'
+            
+            # Force UI redraw
+            for area in context.screen.areas:
+                area.tag_redraw()
+            
+            self.report({'INFO'}, f"Loaded HDRI: {img.name} ({img.size[0]}x{img.size[1]})")
             return {'FINISHED'}
         except Exception as e:
             self.report({'ERROR'}, f"Failed to load HDRI: {e}")
@@ -158,12 +189,12 @@ def register():
         except:
             print("HDRI Editor: World properties already registered")
 
-        from .ui import panels
+        from . import ui
         try:
-            panels.register()
-            print("HDRI Editor: Registered UI panels")
+            ui.register()
+            print("HDRI Editor: Registered UI modules")
         except:
-            print("HDRI Editor: UI panels already registered")
+            print("HDRI Editor: UI modules already registered")
 
         from .utils import preview_utils
         try:
@@ -171,6 +202,14 @@ def register():
             print("HDRI Editor: Registered preview utils")
         except:
             print("HDRI Editor: Preview utils already registered")
+
+        # Register lighting system components
+        try:
+            from . import lighting
+            lighting.register()
+            print("HDRI Editor: Registered lighting system")
+        except Exception as e:
+            print(f"HDRI Editor: Error registering lighting system: {e}")
 
         print("HDRI Editor: All modules registered successfully")
 
@@ -196,12 +235,12 @@ def unregister():
         except:
             print("HDRI Editor: World properties already unregistered")
 
-        from .ui import panels
+        from . import ui
         try:
-            panels.unregister()
-            print("HDRI Editor: Unregistered UI panels")
+            ui.unregister()
+            print("HDRI Editor: Unregistered UI modules")
         except:
-            print("HDRI Editor: UI panels already unregistered")
+            print("HDRI Editor: UI modules already unregistered")
 
         from .utils import preview_utils
         try:
@@ -209,6 +248,15 @@ def unregister():
             print("HDRI Editor: Unregistered preview utils")
         except:
             print("HDRI Editor: Preview utils already unregistered")
+
+        # Unregister lighting system
+        # Unregister lighting system
+        try:
+            from . import lighting
+            lighting.unregister()
+            print("HDRI Editor: Unregistered lighting system")
+        except Exception as e:
+            print(f"HDRI Editor: Error unregistering lighting system: {e}")
 
         # Then unregister main classes
         for cls in reversed(classes):
