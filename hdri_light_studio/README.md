@@ -11,12 +11,12 @@ Egy interaktív HDRI szerkesztő addon Blenderhez, amely KeyShot-stílusú inlin
 - **Real-Time World Sync**: Image Editor változások azonnal megjelennek a 3D világban
 - **Instant Preview**: Material viewport shading automatikus beállítása
 
-### 🖌️ Fejlett Festő Eszközök
-- **Modal Painting**: Interaktív egér-alapú festés real-time frissítéssel
-- **Brush System**: 1-200 pixel méret, 0-200% intenzitás kontroll
+### 🖌️ Egyszerű Festő Eszközök
+- **Ready to Paint**: Egy kattintással Image Editor festési mód
+- **Blender Integration**: Natív Blender festő eszközök használata  
 - **Dual Color Mode**: RGB színválasztás VAGY Kelvin hőmérséklet (1000K-40000K)
 - **Temperature Conversion**: Fizikai alapú Kelvin→RGB konverzió
-- **Brush Falloff**: Smooth, Linear, Sharp ecset szélsimítás opciók
+- **Real-time Update**: Minden festési művelet azonnal frissíti a 3D világot
 
 ### 💡 Intelligens Fény Elhelyezés
 - **Shape-Based Lights**: Kör, négyzet, téglalap alakú fény generáló
@@ -45,19 +45,24 @@ Egy interaktív HDRI szerkesztő addon Blenderhez, amely KeyShot-stílusú inlin
 3. **Viewport Shading**: Material view automatikusan aktiválódik a real-time preview-hoz
 
 ### 🎨 Festési Módok
-#### Traditional Painting
-- **Paint Tool**: Ecset eszköz kiválasztása
-- **Color Settings**: RGB színválasztás VAGY Temperature mód (1000K-40000K)
-- **Brush Settings**: Méret (1-200px), Intenzitás (0-200%)
-- **Start Painting**: Modal festés indítása → egér mozgatásával festés
+#### 🖌️ Image Editor Painting (Ajánlott)
+- **Ready to Paint**: Kattints a gombra → festési mód aktiválódik
+- **Native Tools**: Blender beépített festő eszközei (Brush, Size, Color stb.)
+- **Direct Painting**: Közvetlenül az Image Editor-ban festés
+- **Hot Keys**: 'B' = Brush, 'F' = Size, 'S' = Color picker
 
-#### Smart Light Placement
+#### 💡 Smart Light Placement
 - **Light Tool**: Fény eszköz kiválasztása  
 - **Shape Selection**: Kör/Négyzet/Téglalap alakzat választás
 - **Size & Intensity**: Fényméret (10-500px), erősség (0-10x)
-- **Placement Options**:
-  - **Add Center**: Fény a canvas közepére
-  - **Click to Place**: Modal mód → kattintással bárhova
+- **Center Placement**: Fény automatikusan a canvas közepére kerül
+
+### 🌍 World Settings Panel
+- **World Background**: Canvas beállítása world háttérként
+- **Background Strength**: Világítási erősség szabályozása (0-10x)
+- **Background Rotation**: HDRI forgatás szabályozása (0-360°)
+- **Viewport Display**: World megjelenítés a viewport-ban
+- **Auto Update**: Automatikus world frissítés változtatásokkor
 
 ### ⚡ Real-Time Features
 - **Instant World Update**: Image Editor minden változása azonnal megjelenik a 3D világban

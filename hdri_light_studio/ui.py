@@ -35,71 +35,7 @@ class HDRI_PT_main_panel(Panel):
         else:
             row.operator("hdri_studio.clear_canvas", icon='X')
         
-        # Painting Instructions
-        if props.canvas_active:
-            instructions_box = layout.box()
-            instructions_box.label(text="🎨 How to Paint:", icon='HELP')
-            
-            inst_col = instructions_box.column()
-            inst_col.scale_y = 0.8
-            
-            inst_col.label(text="1. Click '✨ Ready to Paint' above")
-            inst_col.label(text="2. Go to Image Editor panel (right side)")
-            inst_col.label(text="3. Use brush tools or press 'B' for brush")
-            inst_col.label(text="4. Paint directly on the image!")
-            
-            inst_col.separator()
-            inst_col.label(text="💡 Pro Tips:")
-            inst_col.label(text="• Switch to 'Texture Paint' workspace")
-            inst_col.label(text="• Use 'F' to adjust brush size")
-            inst_col.label(text="• Changes appear in 3D viewport instantly")
-        
-        # World Preview section
-        if props.canvas_active:
-            world_box = layout.box()
-            world_box.label(text="World Preview", icon='WORLD')
-            
-            # Show current world shading mode
-            world_info = world_box.column()
-            world_info.scale_y = 0.8
-            
-            if context.scene.world and context.scene.world.use_nodes:
-                world_info.label(text="✅ World HDRI Active", icon='CHECKMARK')
-                
-                # Quick shading mode controls
-                shading_row = world_box.row(align=True)
-                shading_row.label(text="View Mode:")
-                
-                # Check current viewport shading
-                for area in context.screen.areas:
-                    if area.type == 'VIEW_3D':
-                        for space in area.spaces:
-                            if space.type == 'VIEW_3D':
-                                if space.shading.type == 'MATERIAL':
-                                    shading_row.label(text="Material ✅", icon='SHADING_RENDERED')
-                                else:
-                                    shading_button = shading_row.operator("wm.context_set_enum", text="Enable Material View")
-                                    shading_button.data_path = "space_data.shading.type"
-                                    shading_button.value = 'MATERIAL'
-                                break
-                        break
-            else:
-                world_info.label(text="❌ World HDRI Inactive", icon='ERROR')
-            
 
-        
-        # Canvas display area (this is where we'll draw the GPU canvas)
-        if props.canvas_active and canvas_renderer and canvas_renderer.is_initialized:
-            canvas_box = layout.box()
-            canvas_box.label(text="Canvas Display")
-            
-            # Create a custom canvas area
-            canvas_area = canvas_box.column()
-            canvas_area.scale_y = 10  # Make it bigger
-            canvas_area.separator()
-            
-            # This is where we would draw the canvas using custom GPU drawing
-            # We'll use a custom draw handler for this
             
         # Tool palette
         if props.canvas_active:
@@ -126,30 +62,14 @@ class HDRI_PT_main_panel(Panel):
                 else:
                     paint_box.prop(props, "brush_color")
                 
-                # Paint modes
-                paint_mode_box = paint_box.box()
-                paint_mode_box.label(text="🎨 Paint Methods:", icon='BRUSH_DATA')
+                # Paint activation
+                paint_button = paint_box.row()
+                paint_button.scale_y = 1.5
+                paint_button.operator("hdri_studio.simple_paint_setup", text="🎨 Ready to Paint", icon='TPAINT_HLT')
                 
-                # Method 1: Simple Paint Setup (EASIEST)
-                simple_row = paint_mode_box.row()
-                simple_row.scale_y = 1.3
-                simple_row.operator("hdri_studio.simple_paint_setup", text="✨ Ready to Paint", icon='TPAINT_HLT')
-                
-                help_row = paint_mode_box.row()
-                help_row.scale_y = 0.7
-                help_row.label(text="↳ Use Image Editor paint tools or Texture Paint workspace")
-                
-                paint_mode_box.separator()
-                
-                # Method 2: Advanced texture paint (for mesh painting)
-                advanced_row = paint_mode_box.row()
-                advanced_row.scale_y = 0.9  
-                advanced_row.operator("hdri_studio.setup_texture_paint", text="🔧 Mesh Paint Setup", icon='MESH_PLANE')
-                
-                # Method 3: Modal painting (backup)
-                modal_row = paint_mode_box.row()
-                modal_row.scale_y = 0.8
-                modal_row.operator("hdri_studio.paint_canvas", text="📍 Modal Paint (3D View)", icon='BRUSH_DATA')
+                help_row = paint_box.row()
+                help_row.scale_y = 0.8
+                help_row.label(text="↳ Enables painting in Image Editor")
                 
             elif props.current_tool == 'LIGHT':
                 # Light tool settings

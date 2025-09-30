@@ -19,8 +19,10 @@ from . import canvas_renderer
 from . import simple_canvas
 from . import ui_canvas
 from . import utils
-from . import image_paint
 from . import simple_paint
+from . import world_properties
+from . import world_operators
+from . import world_ui
 
 # Module registration list
 modules = [
@@ -31,8 +33,10 @@ modules = [
     simple_canvas,
     ui_canvas,
     utils,
-    image_paint,
     simple_paint,
+    world_properties,
+    world_operators,
+    world_ui,
 ]
 
 def register():
@@ -44,6 +48,7 @@ def register():
         
         # Register scene properties
         bpy.types.Scene.hdri_studio = PointerProperty(type=properties.HDRIStudioProperties)
+        bpy.types.Scene.hdri_studio_world = PointerProperty(type=world_properties.HDRIStudioWorldProperties)
         
         print("HDRI Light Studio registered successfully")
         
@@ -56,6 +61,8 @@ def unregister():
         # Unregister scene properties
         if hasattr(bpy.types.Scene, 'hdri_studio'):
             del bpy.types.Scene.hdri_studio
+        if hasattr(bpy.types.Scene, 'hdri_studio_world'):
+            del bpy.types.Scene.hdri_studio_world
         
         # Unregister all modules in reverse order
         for module in reversed(modules):
