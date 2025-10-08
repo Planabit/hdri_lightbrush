@@ -17,21 +17,19 @@ from . import operators
 from . import ui
 from . import canvas_renderer
 from . import simple_canvas
-from . import ui_canvas
 from . import utils
 from . import simple_paint
 from . import world_properties
 from . import world_operators
 from . import world_ui
 
-# Module registration list
+# Module registration list (ui_canvas removed - canvas view not needed)
 modules = [
     properties,
     operators,
     ui, 
     canvas_renderer,
     simple_canvas,
-    ui_canvas,
     utils,
     simple_paint,
     world_properties,

@@ -6,39 +6,112 @@ Use Blender's built-in texture painting system
 import bpy
 from bpy.types import Operator
 
-class HDRI_OT_simple_paint_setup(Operator):
-    """Setup simple painting using Blender's texture paint"""
-    bl_idname = "hdri_studio.simple_paint_setup"
-    bl_label = "Simple Paint Setup"
-    bl_description = "Setup simple texture painting on HDRI canvas"
+class HDRI_OT_create_canvas_and_paint(Operator):
+    """Create canvas and setup painting in Image Editor with brush active"""
+    bl_idname = "hdri_studio.create_canvas_and_paint"
+    bl_label = "Create Canvas & Paint"
+    bl_description = "Create HDRI canvas and setup painting with active brush"
     
     def execute(self, context):
         try:
-            # Ensure we have canvas image
-            if "HDRI_Canvas" not in bpy.data.images:
-                self.report({'ERROR'}, "Create canvas first!")
-                return {'CANCELLED'}
+            # Get canvas properties
+            props = context.scene.hdri_studio
             
-            canvas_image = bpy.data.images["HDRI_Canvas"]
+            # Create HDRI image
+            canvas_size = props.canvas_size
+            size_map = {
+                '512': 512, '1024': 1024, '2048': 2048, 
+                '4096': 4096, '8192': 8192
+            }
+            size = size_map.get(canvas_size, 2048)
             
-            # Set Image Editor to paint mode
+            # Remove existing canvas if any
+            if "HDRI_Canvas" in bpy.data.images:
+                bpy.data.images.remove(bpy.data.images["HDRI_Canvas"])
+            
+            # Create new canvas image
+            canvas_image = bpy.data.images.new(
+                name="HDRI_Canvas",
+                width=size,
+                height=size//2,  # HDRI aspect ratio 2:1
+                alpha=False,
+                float_buffer=True
+            )
+            
+            # Set colorspace for HDRI work
+            try:
+                canvas_image.colorspace_settings.name = 'Linear Rec.709'
+            except:
+                try:
+                    canvas_image.colorspace_settings.name = 'sRGB'
+                except:
+                    pass
+            
+            # Mark canvas as active
+            props.canvas_active = True
+            
+            # Split 3D Viewport and create Image Editor
+            viewport_area = None
             for area in context.screen.areas:
-                if area.type == 'IMAGE_EDITOR':
-                    for space in area.spaces:
+                if area.type == 'VIEW_3D':
+                    viewport_area = area
+                    break
+            
+            if viewport_area:
+                # Split the 3D Viewport vertically
+                with context.temp_override(area=viewport_area):
+                    bpy.ops.screen.area_split(direction='VERTICAL', factor=0.5)
+                
+                # Find the new area (it will be the rightmost one)
+                new_area = None
+                for area in context.screen.areas:
+                    if area.type == 'VIEW_3D' and area != viewport_area:
+                        new_area = area
+                        break
+                
+                # Convert the new area to Image Editor by directly changing type
+                if new_area:
+                    # Change area type directly
+                    new_area.type = 'IMAGE_EDITOR'
+                    
+                    # Setup the Image Editor for painting
+                    for space in new_area.spaces:
                         if space.type == 'IMAGE_EDITOR':
                             space.image = canvas_image
                             space.mode = 'PAINT'
                             space.show_gizmo = True
-                            area.tag_redraw()
-                            print("Image Editor set to paint mode")
+                            space.show_region_ui = True  # Show brush settings sidebar
+                            new_area.tag_redraw()
+                            print("Created Image Editor in split area with paint mode")
+                            break
             
-            # Instructions for user
-            self.report({'INFO'}, "Canvas ready! Use Image Editor paint tools or switch to Texture Paint workspace")
+            # Setup texture paint settings and activate brush
+            if context.tool_settings and context.tool_settings.image_paint:
+                settings = context.tool_settings.image_paint
+                settings.canvas = canvas_image
+                
+                # Create or get brush
+                if not settings.brush:
+                    if "HDRI_Brush" in bpy.data.brushes:
+                        settings.brush = bpy.data.brushes["HDRI_Brush"]
+                    else:
+                        # Create new brush for HDRI painting
+                        brush = bpy.data.brushes.new("HDRI_Brush", mode='TEXTURE_PAINT')
+                        brush.color = (1.0, 1.0, 1.0)  # White for light painting
+                        brush.size = 50
+                        brush.strength = 1.0
+                        brush.blend = 'MIX'
+                        settings.brush = brush
+                        print("Created HDRI brush")
+            
+            # NO workspace switch - keep current workspace to preserve addon panel
+            
+            self.report({'INFO'}, "Canvas created! Paint mode activated in Image Editor")
             
             return {'FINISHED'}
             
         except Exception as e:
-            self.report({'ERROR'}, f"Setup failed: {e}")
+            self.report({'ERROR'}, f"Canvas creation failed: {e}")
             return {'CANCELLED'}
 
 class HDRI_OT_paint_brush_stroke(Operator):
@@ -113,9 +186,9 @@ class HDRI_OT_paint_brush_stroke(Operator):
             print(f"Pixel painting failed: {e}")
 
 def register():
-    bpy.utils.register_class(HDRI_OT_simple_paint_setup)
+    bpy.utils.register_class(HDRI_OT_create_canvas_and_paint)
     bpy.utils.register_class(HDRI_OT_paint_brush_stroke)
 
 def unregister():
     bpy.utils.unregister_class(HDRI_OT_paint_brush_stroke)
-    bpy.utils.unregister_class(HDRI_OT_simple_paint_setup)
+    bpy.utils.unregister_class(HDRI_OT_create_canvas_and_paint)
