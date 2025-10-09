@@ -271,38 +271,45 @@ class HDRI_OT_clear_canvas(Operator):
     bl_description = "Clear the current canvas"
     
     def execute(self, context):
-        global canvas_renderer
-        
-        if canvas_renderer and canvas_renderer.is_initialized:
-            # Reset canvas to white
-            canvas_renderer.canvas_data.fill(1.0)
-            canvas_renderer.canvas_data[:, :, 3] = 1.0  # Alpha
-            canvas_renderer.update_canvas_data()
+        try:
+            # Check if HDRI_Canvas exists
+            if "HDRI_Canvas" not in bpy.data.images:
+                self.report({'ERROR'}, "No HDRI canvas found")
+                return {'CANCELLED'}
             
-            # Update canvas image and world HDRI
+            canvas_image = bpy.data.images["HDRI_Canvas"]
+            
+            # Get canvas dimensions
+            width = canvas_image.size[0]
+            height = canvas_image.size[1]
+            
+            # Create white pixels (RGBA)
+            white_pixels = [1.0, 1.0, 1.0, 1.0] * (width * height)
+            
+            # Clear canvas to white
+            canvas_image.pixels[:] = white_pixels
+            canvas_image.update()
+            
+            # Update world HDRI if function exists
             try:
-                if "HDRI_Canvas" in bpy.data.images:
-                    canvas_image = bpy.data.images["HDRI_Canvas"]
-                    height, width = canvas_renderer.canvas_data.shape[:2]
-                    pixels = canvas_renderer.canvas_data.reshape(height * width * 4)
-                    canvas_image.pixels[:] = pixels
-                    canvas_image.update()
-                
-                # Update world HDRI
                 update_world_hdri(context)
-                
-            except Exception as e:
-                print(f"Canvas clear update failed: {e}")
+            except:
+                pass  # update_world_hdri might not exist
             
-            # Redraw UI
+            # Mark canvas as still active
+            props = context.scene.hdri_studio
+            props.canvas_active = True
+            
+            # Redraw areas
             for area in context.screen.areas:
                 area.tag_redraw()
                     
-            self.report({'INFO'}, "Canvas cleared")
-        else:
-            self.report({'ERROR'}, "No active canvas")
+            self.report({'INFO'}, "Canvas cleared to white")
+            return {'FINISHED'}
             
-        return {'FINISHED'}
+        except Exception as e:
+            self.report({'ERROR'}, f"Clear canvas failed: {e}")
+            return {'CANCELLED'}
 
 
 

@@ -19,18 +19,35 @@ class HDRI_PT_main_panel(Panel):
         scene = context.scene
         props = scene.hdri_studio
         
-        # Canvas controls
+        # HDRI File Operations
         box = layout.box()
-        box.label(text="Canvas", icon='IMAGE_DATA')
+        box.label(text="HDRI Files", icon='IMAGE_DATA')
         
+        # Canvas size selection
         row = box.row()
         row.prop(props, "canvas_size")
         
-        row = box.row()
+        # Main action buttons
         if not props.canvas_active:
-            row.operator("hdri_studio.create_canvas_and_paint", text="Create Canvas & Paint", icon='TPAINT_HLT')
+            # Create new or load existing
+            row = box.row(align=True)
+            row.scale_y = 1.3
+            row.operator("hdri_studio.create_canvas_and_paint", text="New HDRI", icon='ADD')
+            row.operator("hdri_studio.load_canvas", text="Load HDRI", icon='FILEBROWSER')
         else:
-            row.operator("hdri_studio.clear_canvas", icon='X')
+            # Canvas management and save options
+            row = box.row()
+            row.operator("hdri_studio.clear_canvas", text="Clear Canvas", icon='X')
+            
+            # Save buttons
+            row = box.row(align=True)
+            row.scale_y = 1.2
+            row.operator("hdri_studio.quick_save_canvas", text="Quick Save", icon='FILE_TICK')
+            row.operator("hdri_studio.save_canvas", text="Save As...", icon='EXPORT')
+            
+            # Load new HDRI (replace current)
+            row = box.row()
+            row.operator("hdri_studio.load_canvas", text="Load Different HDRI", icon='FILEBROWSER')
 
 # Simple UI without canvas draw handler
 

@@ -22,6 +22,7 @@ from . import simple_paint
 from . import world_properties
 from . import world_operators
 from . import world_ui
+from . import hdri_save
 
 # Module registration list (ui_canvas removed - canvas view not needed)
 modules = [
@@ -35,6 +36,7 @@ modules = [
     world_properties,
     world_operators,
     world_ui,
+    hdri_save,
 ]
 
 def register():
