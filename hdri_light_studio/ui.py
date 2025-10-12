@@ -48,12 +48,52 @@ class HDRI_PT_main_panel(Panel):
             # Load new HDRI (replace current)
             row = box.row()
             row.operator("hdri_studio.load_canvas", text="Load Different HDRI", icon='FILEBROWSER')
-
+            
 # Simple UI without canvas draw handler
+
+
+class HDRI_PT_HemispherePanel(bpy.types.Panel):
+    bl_label = "Hemisphere Preview"
+    bl_idname = "HDRI_PT_hemisphere"
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'UI'
+    bl_category = 'HDRI Studio'
+    bl_options = {'DEFAULT_CLOSED'}
+
+    def draw(self, context):
+        layout = self.layout
+        col = layout.column(align=True)
+        
+        # Check if hemisphere exists
+        hemisphere_exists = "HDRI_Hemisphere" in bpy.data.objects
+        handler_exists = "HDRI_Hemisphere_Handler" in bpy.data.objects
+        
+        if not hemisphere_exists:
+            # Geometry type selection
+            col.label(text="Geometry Type:")
+            col.prop(context.scene.hemisphere_props, "geometry_type", text="")
+            
+            # Add hemisphere button
+            row = col.row()
+            row.scale_y = 1.2
+            row.operator("hdri_studio.hemisphere_add", text="Add Hemisphere", icon='MESH_UVSPHERE')
+        else:
+            # Hemisphere management buttons
+            row = col.row(align=True)
+            row.operator("hdri_studio.hemisphere_remove", text="Remove", icon='X')
+            row.operator("hdri_studio.hemisphere_paint_setup", text="3D Paint", icon='TPAINT_HLT')
+            
+            # Scale controls like sample dome system
+            if handler_exists:
+                col.separator()
+                col.label(text="Scale Hemisphere:")
+                col.prop(context.scene.hemisphere_props, "hemisphere_scale", text="Scale", slider=True)
+
 
 # Panel classes list  
 classes = [
     HDRI_PT_main_panel,
+    HDRI_PT_HemispherePanel,
 ]
 
 def register():

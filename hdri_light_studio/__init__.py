@@ -23,6 +23,7 @@ from . import world_properties
 from . import world_operators
 from . import world_ui
 from . import hdri_save
+from . import hemisphere_tools  # hemisphere tools
 
 # Module registration list (ui_canvas removed - canvas view not needed)
 modules = [
@@ -37,6 +38,7 @@ modules = [
     world_operators,
     world_ui,
     hdri_save,
+    hemisphere_tools,
 ]
 
 def register():
