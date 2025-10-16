@@ -83,29 +83,13 @@ def load_dome_as_hemisphere(name="HDRI_Hemisphere", geometry_type='CLOSED_HEMISP
 
 
 def setup_hemisphere_material(obj, canvas_image=None):
-    """Setup material for hemisphere based on sample dome implementation"""
+    """Setup material for hemisphere optimized for texture painting"""
     
     # Clear existing materials
     obj.data.materials.clear()
     
-    # Load the exact dome material from sample
-    dome_material = load_sample_dome_material()
-    
-    if dome_material:
-        # Assign material to hemisphere
-        obj.data.materials.append(dome_material)
-        
-        # Assign hemisphere object to material coordinates (like sample)
-        assign_hemisphere_to_material_coordinates(obj, dome_material)
-        
-        # Assign canvas image to material if available
-        if canvas_image:
-            assign_image_to_hemisphere_material(dome_material, canvas_image)
-        
-        return dome_material
-    else:
-        # Fallback to simple material if sample loading fails
-        return create_painting_hemisphere_material(obj, canvas_image)
+    # Always use simple painting material to avoid missing texture errors
+    return create_painting_hemisphere_material(obj, canvas_image)
 
 
 def load_sample_dome_material():
@@ -186,7 +170,7 @@ def assign_image_to_hemisphere_material(material, image):
 
 
 def create_painting_hemisphere_material(obj, canvas_image=None):
-    """Create material optimized for 3D viewport painting on hemisphere interior"""
+    """Create clean material optimized for 3D viewport painting on hemisphere interior"""
     
     # Create new material
     mat = bpy.data.materials.new(name=f"{obj.name}_Material")
@@ -200,39 +184,51 @@ def create_painting_hemisphere_material(obj, canvas_image=None):
     nodes = mat.node_tree.nodes
     nodes.clear()
     
-    # Create nodes for see-through hemisphere
+    # Create shader nodes for interior hemisphere display - SIMPLE VERSION THAT WORKS
     output = nodes.new(type='ShaderNodeOutputMaterial')
     mix_shader = nodes.new(type='ShaderNodeMixShader')
-    transparent = nodes.new(type='ShaderNodeBsdfTransparent')
     emission = nodes.new(type='ShaderNodeEmission')
-    image_texture = nodes.new(type='ShaderNodeTexImage')
+    transparent = nodes.new(type='ShaderNodeBsdfTransparent')
+    image_texture = nodes.new(type='ShaderNodeTexImage')  # Regular Image Texture for painting
     geometry = nodes.new(type='ShaderNodeNewGeometry')
     
-    # Set node locations
+    # Position nodes
     output.location = (400, 0)
     mix_shader.location = (200, 0)
-    transparent.location = (0, 100)
     emission.location = (0, -100)
+    transparent.location = (0, 100)
     image_texture.location = (-200, -100)
     geometry.location = (-200, 100)
     
-    # Connect nodes - front faces transparent, back faces show HDRI
+    # Connect nodes - exterior transparent, interior shows painted texture
     links = mat.node_tree.links
     links.new(mix_shader.outputs['Shader'], output.inputs['Surface'])
-    links.new(emission.outputs['Emission'], mix_shader.inputs[1])  # Front faces = HDRI  
-    links.new(transparent.outputs['BSDF'], mix_shader.inputs[2])  # Back faces = transparent
+    links.new(emission.outputs['Emission'], mix_shader.inputs[1])  # Interior = painted texture
+    links.new(transparent.outputs['BSDF'], mix_shader.inputs[2])  # Exterior = transparent
     links.new(image_texture.outputs['Color'], emission.inputs['Color'])
     links.new(geometry.outputs['Backfacing'], mix_shader.inputs[0])  # Mix factor
     
-    # Set emission strength for proper HDRI brightness
-    emission.inputs['Strength'].default_value = 2.0
+    # Set emission strength for proper visibility
+    emission.inputs['Strength'].default_value = 1.0
     
     # Set canvas image if available
     if canvas_image:
         image_texture.image = canvas_image
-        # Important: Set color space for HDRI - use Linear Rec.709 for proper HDRI display
+        # Set proper color space for HDRI
         if hasattr(canvas_image, 'colorspace_settings'):
             canvas_image.colorspace_settings.name = 'Linear Rec.709'
+    else:
+        # Create a default white texture to avoid missing texture warnings
+        if "HDRI_Default_White" not in bpy.data.images:
+            white_image = bpy.data.images.new("HDRI_Default_White", width=512, height=256)
+            # Fill with white
+            pixels = [1.0] * (512 * 256 * 4)  # RGBA white
+            white_image.pixels[:] = pixels
+            white_image.colorspace_settings.name = 'Linear Rec.709'
+        else:
+            white_image = bpy.data.images["HDRI_Default_White"]
+        
+        image_texture.image = white_image
     
     return mat
 

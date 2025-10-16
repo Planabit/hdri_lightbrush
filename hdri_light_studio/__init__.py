@@ -24,6 +24,7 @@ from . import world_operators
 from . import world_ui
 from . import hdri_save
 from . import hemisphere_tools  # hemisphere tools
+from . import viewport_paint_operator  # Working 3D painting with second intersection
 
 # Module registration list (ui_canvas removed - canvas view not needed)
 modules = [
@@ -39,6 +40,7 @@ modules = [
     world_ui,
     hdri_save,
     hemisphere_tools,
+    viewport_paint_operator,  # Working 3D painting with second intersection
 ]
 
 def register():

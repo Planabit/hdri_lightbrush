@@ -4,7 +4,16 @@ Simple HDRI Light Studio Panel
 """
 
 import bpy
-from bpy.types import Panel
+from bpy.typ        else:
+            # Hemisphere management buttons
+            row = col.row(align=True)
+            row.operator("hdri_studio.hemisphere_remove", text="Remove", icon='X')
+            row.operator("hdri_studio.hemisphere_paint_setup", text="Setup Paint", icon='TPAINT_HLT')
+            
+            # Working 3D painting with second intersection (RESTORED)
+            row = col.row()
+            row.scale_y = 1.3
+            row.operator("hdri_studio.viewport_paint", text="🎯 3D Paint (Interior)", icon='BRUSH_DATA')
 
 class HDRI_PT_main_panel(Panel):
     """Main HDRI Light Studio Panel with inline canvas display"""
@@ -83,10 +92,15 @@ class HDRI_PT_HemispherePanel(bpy.types.Panel):
             row.operator("hdri_studio.hemisphere_remove", text="Remove", icon='X')
             row.operator("hdri_studio.hemisphere_paint_setup", text="Setup Paint", icon='TPAINT_HLT')
             
-            # Working 3D painting with second intersection (RESTORED)
+            # Simple 3D painting (NEW - uses native Blender painting)
             row = col.row()
-            row.scale_y = 1.3
-            row.operator("hdri_studio.viewport_paint", text="🎯 3D Paint (Interior)", icon='BRUSH_DATA')
+            row.scale_y = 1.2
+            row.operator("hdri_studio.enable_3d_paint", text="� Enable 3D Paint", icon='BRUSH_DATA')
+            
+            # Smart paint click for interior surface
+            if bpy.context.mode == 'PAINT_TEXTURE':
+                row = col.row()
+                row.operator("hdri_studio.smart_paint_click", text="🎯 Smart Paint Click", icon='MOUSE_LMB')
             
             # Scale controls like sample dome system
             if handler_exists:
