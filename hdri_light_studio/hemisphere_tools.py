@@ -83,13 +83,29 @@ def load_dome_as_hemisphere(name="HDRI_Hemisphere", geometry_type='CLOSED_HEMISP
 
 
 def setup_hemisphere_material(obj, canvas_image=None):
-    """Setup material for hemisphere optimized for texture painting"""
+    """Setup material for hemisphere based on sample dome implementation"""
     
     # Clear existing materials
     obj.data.materials.clear()
     
-    # Always use simple painting material to avoid missing texture errors
-    return create_painting_hemisphere_material(obj, canvas_image)
+    # Load the exact dome material from sample
+    dome_material = load_sample_dome_material()
+    
+    if dome_material:
+        # Assign material to hemisphere
+        obj.data.materials.append(dome_material)
+        
+        # Assign hemisphere object to material coordinates (like sample)
+        assign_hemisphere_to_material_coordinates(obj, dome_material)
+        
+        # Assign canvas image to material if available
+        if canvas_image:
+            assign_image_to_hemisphere_material(dome_material, canvas_image)
+        
+        return dome_material
+    else:
+        # Fallback to simple material if sample loading fails
+        return create_painting_hemisphere_material(obj, canvas_image)
 
 
 def load_sample_dome_material():
@@ -184,32 +200,32 @@ def create_painting_hemisphere_material(obj, canvas_image=None):
     nodes = mat.node_tree.nodes
     nodes.clear()
     
-    # Create shader nodes for interior hemisphere display - SIMPLE VERSION THAT WORKS
+    # Create nodes for see-through hemisphere (ORIGINAL DOME FUNCTIONS VERSION)
     output = nodes.new(type='ShaderNodeOutputMaterial')
     mix_shader = nodes.new(type='ShaderNodeMixShader')
-    emission = nodes.new(type='ShaderNodeEmission')
     transparent = nodes.new(type='ShaderNodeBsdfTransparent')
-    image_texture = nodes.new(type='ShaderNodeTexImage')  # Regular Image Texture for painting
+    emission = nodes.new(type='ShaderNodeEmission')
+    image_texture = nodes.new(type='ShaderNodeTexImage')
     geometry = nodes.new(type='ShaderNodeNewGeometry')
     
-    # Position nodes
+    # Set node locations
     output.location = (400, 0)
     mix_shader.location = (200, 0)
-    emission.location = (0, -100)
     transparent.location = (0, 100)
+    emission.location = (0, -100)
     image_texture.location = (-200, -100)
     geometry.location = (-200, 100)
     
-    # Connect nodes - exterior transparent, interior shows painted texture
+    # Connect nodes - front faces transparent, back faces show HDRI (ORIGINAL CONNECTIONS)
     links = mat.node_tree.links
     links.new(mix_shader.outputs['Shader'], output.inputs['Surface'])
-    links.new(emission.outputs['Emission'], mix_shader.inputs[1])  # Interior = painted texture
-    links.new(transparent.outputs['BSDF'], mix_shader.inputs[2])  # Exterior = transparent
+    links.new(emission.outputs['Emission'], mix_shader.inputs[1])  # Front faces = HDRI  
+    links.new(transparent.outputs['BSDF'], mix_shader.inputs[2])  # Back faces = transparent
     links.new(image_texture.outputs['Color'], emission.inputs['Color'])
     links.new(geometry.outputs['Backfacing'], mix_shader.inputs[0])  # Mix factor
     
-    # Set emission strength for proper visibility
-    emission.inputs['Strength'].default_value = 1.0
+    # Set emission strength for proper HDRI brightness
+    emission.inputs['Strength'].default_value = 2.0
     
     # Set canvas image if available
     if canvas_image:
