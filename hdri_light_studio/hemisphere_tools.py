@@ -98,7 +98,10 @@ def setup_hemisphere_material(obj, canvas_image=None):
         # Assign hemisphere object to material coordinates (like sample)
         assign_hemisphere_to_material_coordinates(obj, dome_material)
         
-        # Assign canvas image to material if available
+        # FIRST: Assign default white texture to ALL missing texture nodes
+        assign_default_texture_to_dome_material(dome_material)
+        
+        # THEN: Assign canvas image to material if available (IMPROVED - ALL ENV TEXTURE NODES)
         if canvas_image:
             assign_image_to_hemisphere_material(dome_material, canvas_image)
         
@@ -109,19 +112,26 @@ def setup_hemisphere_material(obj, canvas_image=None):
 
 
 def load_sample_dome_material():
-    """Load the exact dome material from sample using same method as dome_fc.py"""
+    """Load the exact dome material from sample with ALL dependencies"""
     
     dome_mat_path = r"e:\Projects\HDRI_editor\sample\hdri_maker\addon_resources\blendfiles\materials\HDRi_Maker_Dome.blend"
     
     try:
-        # Load dome material from blend file using exact same method as sample
+        # Load dome material with ALL dependencies (materials, node groups, images)
         dome_material = None
         with bpy.data.libraries.load(dome_mat_path, link=False) as (data_from, data_to):
+            # Load all materials
             data_to.materials = [name for name in data_from.materials if name == 'HDRi_Maker_Dome']
+            # Load all node groups that the material might use
+            data_to.node_groups = data_from.node_groups[:]
+            # Load all images that might be referenced
+            data_to.images = data_from.images[:]
         
         if data_to.materials:
             dome_material = data_to.materials[0]
             dome_material.name = "HDRI_Hemisphere_Material"
+            
+            print(f"Loaded dome material with {len(data_to.node_groups)} node groups and {len(data_to.images)} images")
             
             # Close material node groups like in sample
             if dome_material.use_nodes:
@@ -167,22 +177,98 @@ def assign_hemisphere_to_material_coordinates(hemisphere_obj, material):
 
 
 def assign_image_to_hemisphere_material(material, image):
-    """Assign image to hemisphere material like sample dome"""
+    """Assign image to ALL texture nodes in hemisphere material"""
     
     if not material or not material.use_nodes or not image:
         return
     
-    node_tree = material.node_tree
+    replaced_count = 0
     
-    # Find Environment Texture nodes and assign image
-    for node in node_tree.nodes:
-        if node.type == 'TEX_ENVIRONMENT':
-            node.image = image
-        elif hasattr(node, 'node_tree') and node.node_tree:
-            # Check inside node groups too
-            for ng_node in node.node_tree.nodes:
-                if ng_node.type == 'TEX_ENVIRONMENT':
-                    ng_node.image = image
+    # Recursively find and replace ALL texture node images at ALL depths
+    def replace_in_node_tree(node_tree, depth=0):
+        nonlocal replaced_count
+        indent = "  " * depth
+        
+        if not node_tree:
+            return
+        
+        for node in node_tree.nodes:
+            # Check for ANY texture node type that might have an image
+            if hasattr(node, 'image') and node.image is not None:
+                old_image = node.image.name
+                node.image = image
+                replaced_count += 1
+                print(f"{indent}Replaced {node.type} '{node.name}': {old_image} -> {image.name}")
+            elif hasattr(node, 'image') and node.image is None:
+                # Also assign to nodes with no image assigned
+                node.image = image
+                replaced_count += 1
+                print(f"{indent}Assigned {node.type} '{node.name}': None -> {image.name}")
+            elif hasattr(node, 'node_tree') and node.node_tree:
+                # Recursively check ALL node groups at ALL depths
+                print(f"{indent}Entering node group: {node.name}")
+                replace_in_node_tree(node.node_tree, depth + 1)
+    
+    print(f"Starting image replacement in material: {material.name}")
+    replace_in_node_tree(material.node_tree)
+    
+    # ALSO check all node groups that might be loaded independently  
+    for ng in bpy.data.node_groups:
+        if ng.name.startswith('HDRI_Maker') or ng.name.startswith('Dome'):
+            print(f"Checking independent node group: {ng.name}")
+            replace_in_node_tree(ng, 0)
+    
+    print(f"Total texture nodes replaced: {replaced_count}")
+
+
+def assign_default_texture_to_dome_material(material):
+    """Assign default white texture to ALL Environment Texture nodes to avoid missing texture warnings"""
+    
+    if not material or not material.use_nodes:
+        return
+    
+    # Create default white HDRI texture if it doesn't exist
+    if "HDRI_Default_White" not in bpy.data.images:
+        white_image = bpy.data.images.new("HDRI_Default_White", width=1024, height=512)
+        # Fill with white
+        pixels = [1.0] * (1024 * 512 * 4)  # RGBA white
+        white_image.pixels[:] = pixels
+        white_image.colorspace_settings.name = 'Linear Rec.709'
+        print("Created default white HDRI texture")
+    else:
+        white_image = bpy.data.images["HDRI_Default_White"]
+    
+    replaced_count = 0
+    
+    # Recursively find and assign to ALL Environment Texture nodes at ALL depths
+    def assign_to_node_tree(node_tree, depth=0):
+        nonlocal replaced_count
+        indent = "  " * depth
+        
+        if not node_tree:
+            return
+            
+        for node in node_tree.nodes:
+            if node.type == 'TEX_ENVIRONMENT':
+                old_image = node.image.name if node.image else "None"
+                node.image = white_image
+                replaced_count += 1
+                print(f"{indent}Assigned default white to Environment Texture '{node.name}': {old_image} -> {white_image.name}")
+            elif hasattr(node, 'node_tree') and node.node_tree:
+                # Recursively check ALL node groups at ALL depths
+                print(f"{indent}Entering node group: {node.name}")
+                assign_to_node_tree(node.node_tree, depth + 1)
+    
+    print(f"Starting default texture assignment in material: {material.name}")
+    assign_to_node_tree(material.node_tree)
+    
+    # ALSO check all node groups that might be loaded independently
+    for ng in bpy.data.node_groups:
+        if ng.name.startswith('HDRI_Maker') or ng.name.startswith('Dome'):
+            print(f"Checking independent node group: {ng.name}")
+            assign_to_node_tree(ng, 0)
+    
+    print(f"Total Environment Texture nodes with default texture: {replaced_count}")
 
 
 def create_painting_hemisphere_material(obj, canvas_image=None):
@@ -303,14 +389,32 @@ def setup_hemisphere_for_painting(obj, canvas_image):
     
     # Setup material and painting
     if canvas_image and obj.data.materials:
-        # Make sure the material has the image texture node active
+        # Find or create paintable TEX_IMAGE node in material root
         for mat in obj.data.materials:
             if mat.use_nodes:
+                paintable_node = None
+                
+                # First, try to find existing TEX_IMAGE node with our canvas
                 for node in mat.node_tree.nodes:
                     if node.type == 'TEX_IMAGE' and node.image == canvas_image:
-                        # Make this node active for painting
-                        mat.node_tree.nodes.active = node
+                        paintable_node = node
+                        print(f"Found paintable TEX_IMAGE node: {node.name}")
                         break
+                
+                # If no paintable node found, create dedicated paint node
+                if not paintable_node:
+                    print("No paintable TEX_IMAGE node found - creating dedicated paint node")
+                    paintable_node = mat.node_tree.nodes.new(type='ShaderNodeTexImage')
+                    paintable_node.name = "Paint_Canvas"
+                    paintable_node.label = "Paint Canvas (TEX_IMAGE)"
+                    paintable_node.image = canvas_image
+                    paintable_node.location = (300, 400)  # Place it visibly in shader editor
+                    print(f"Created dedicated TEX_IMAGE paint node: {paintable_node.name}")
+                
+                # Make this node active for painting (CRITICAL!)
+                mat.node_tree.nodes.active = paintable_node
+                print(f"Set active paint node: {paintable_node.name}")
+                break
     
     # Enter texture paint mode
     bpy.ops.object.mode_set(mode='TEXTURE_PAINT')
