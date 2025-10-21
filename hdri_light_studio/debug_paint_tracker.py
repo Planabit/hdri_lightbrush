@@ -10,17 +10,18 @@ def draw_numbered_targets_on_canvas(canvas_image):
     width, height = canvas_image.size
     pixels = list(canvas_image.pixels)
     
-    # 9 test points with BRIGHT colors
+    # Clustered test points in center region for better sphere visibility
+    # NO corrections, just raw UV positions - all in 0.2-0.8 range
     test_points = [
-        (0.5, 0.5, 1, (1.0, 0.0, 0.0)),    # CENTER - RED
-        (0.5, 0.75, 2, (1.0, 0.5, 0.0)),   # TOP - ORANGE
-        (0.75, 0.5, 3, (1.0, 1.0, 0.0)),   # RIGHT - YELLOW
-        (0.5, 0.25, 4, (0.0, 1.0, 0.0)),   # BOTTOM - GREEN
-        (0.25, 0.5, 5, (0.0, 1.0, 1.0)),   # LEFT - CYAN
-        (0.25, 0.75, 6, (0.0, 0.0, 1.0)),  # TOP-LEFT - BLUE
-        (0.75, 0.75, 7, (1.0, 0.0, 1.0)),  # TOP-RIGHT - MAGENTA
-        (0.75, 0.25, 8, (1.0, 1.0, 1.0)),  # BOTTOM-RIGHT - WHITE
-        (0.25, 0.25, 9, (0.8, 0.8, 0.8))   # BOTTOM-LEFT - GRAY
+        (0.50, 0.50, 1, (1.0, 0.0, 0.0)),    # CENTER - RED
+        (0.50, 0.70, 2, (1.0, 0.5, 0.0)),    # TOP-CENTER - ORANGE
+        (0.70, 0.50, 3, (1.0, 1.0, 0.0)),    # RIGHT-CENTER - YELLOW
+        (0.50, 0.30, 4, (0.0, 1.0, 0.0)),    # BOTTOM-CENTER - GREEN
+        (0.30, 0.50, 5, (0.0, 1.0, 1.0)),    # LEFT-CENTER - CYAN
+        (0.30, 0.70, 6, (0.0, 0.0, 1.0)),    # TOP-LEFT - BLUE
+        (0.70, 0.70, 7, (1.0, 0.0, 1.0)),    # TOP-RIGHT - MAGENTA
+        (0.70, 0.30, 8, (1.0, 1.0, 1.0)),    # BOTTOM-RIGHT - WHITE
+        (0.30, 0.30, 9, (0.3, 0.3, 0.3))     # BOTTOM-LEFT - DARK GRAY (more visible)
     ]
     
     def set_pixel(x, y, r, g, b):
@@ -59,14 +60,20 @@ def draw_numbered_targets_on_canvas(canvas_image):
     
     tracking_data['test_points'] = []
     print("\n" + "="*70)
-    print("DRAWING DEBUG TARGETS ON CANVAS")
+    print("DRAWING DEBUG TARGETS ON CANVAS - RAW UV COORDINATES")
     print("="*70)
-    print("\nClick them in this order on the HEMISPHERE:")
+    print("\nNo corrections applied - pure equirectangular mapping")
+    print("Click them in this order on the SPHERE:")
     print("")
     
     for u, v, number, color in test_points:
+        # DIRECT MAPPING - NO CORRECTIONS
+        # Just convert UV to pixel coordinates
+        # Standard equirectangular: U wraps horizontally, V goes bottom to top
+        # But in Blender images, pixel (0,0) is TOP-LEFT
+        # So: V=0 → top, V=1 → bottom (no flip needed!)
         pixel_x = int(u * width)
-        pixel_y = int((1.0 - v) * height)
+        pixel_y = int(v * height)  # Direct mapping, no flip
         
         # Draw LARGE colored circle (radius 50)
         draw_filled_circle(pixel_x, pixel_y, 50, color[0], color[1], color[2])
@@ -111,18 +118,44 @@ def draw_numbered_targets_on_canvas(canvas_image):
 def start_tracking():
     tracking_data['enabled'] = True
     tracking_data['clicks'] = []
-    print("TRACKING STARTED")
+    print("\n" + "="*70)
+    print("🎯 TRACKING STARTED")
+    print("="*70)
+    print("Now:")
+    print("  1. Click '3D Paint' button above")
+    print("  2. LEFT CLICK on each numbered target (1→9)")
+    print("  3. Press ESC to exit paint mode")
+    print("  4. Click 'Stop & Analyze' to see results")
+    print("="*70 + "\n")
 
 def stop_tracking():
     tracking_data['enabled'] = False
-    print("TRACKING RESULTS:")
-    for i, click in enumerate(tracking_data['clicks'], 1):
-        print(f"  Click {i}: UV({click['uv'][0]:.3f}, {click['uv'][1]:.3f})")
+    print("\n" + "="*70)
+    print("TRACKING RESULTS")
+    print("="*70)
+    print(f"Total clicks recorded: {len(tracking_data['clicks'])}")
+    print("")
+    
+    if len(tracking_data['clicks']) == 0:
+        print("⚠️  NO CLICKS RECORDED!")
+        print("   Make sure you:")
+        print("   1. Clicked 'Enable Tracking' button")
+        print("   2. Clicked '3D Paint' button")
+        print("   3. LEFT CLICK on targets in 3D viewport")
+        print("")
+    else:
+        for i, click in enumerate(tracking_data['clicks'], 1):
+            print(f"  Click {i}: UV({click['uv'][0]:.3f}, {click['uv'][1]:.3f})")
+    
+    print("="*70 + "\n")
 
 def record_paint_click(uv_coord, pixel_coord):
     if tracking_data['enabled']:
         tracking_data['clicks'].append({'uv': uv_coord, 'pixel': pixel_coord})
-        print(f"Recorded click {len(tracking_data['clicks'])}: UV({uv_coord[0]:.3f}, {uv_coord[1]:.3f})")
+        click_num = len(tracking_data['clicks'])
+        print(f"✅ Click {click_num}: UV({uv_coord[0]:.3f}, {uv_coord[1]:.3f}) Pixel({pixel_coord[0]}, {pixel_coord[1]})")
+    else:
+        print(f"⚠️  Tracking disabled! Click 'Enable Tracking' first. UV: {uv_coord}")
 
 class HDRI_OT_draw_debug_points(bpy.types.Operator):
     bl_idname = "hdri_studio.draw_debug_points"

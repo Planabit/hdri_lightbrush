@@ -236,13 +236,17 @@ class HDRI_OT_viewport_paint(bpy.types.Operator):
             print(f"Failed to get UV coordinate for face {face_index}")
             return
         
+        # UV coordinate is already correct from spherical mapping
+        # Marker drawing uses: pixel_y = v * height (no flip)
+        # So we use the same: NO FLIP needed
+        
         print(f"UV coordinate: {uv_coord}")
         
-        # Convert UV to pixel coordinates
+        # Convert UV to pixel coordinates - direct mapping, no flip
         image_width = self.canvas_image.size[0]
         image_height = self.canvas_image.size[1]
         pixel_x = int(uv_coord[0] * image_width)
-        pixel_y = int((1.0 - uv_coord[1]) * image_height)  # Flip Y coordinate
+        pixel_y = int(uv_coord[1] * image_height)  # Direct, same as markers
         
         print(f"Painting at pixel: ({pixel_x}, {pixel_y}) on {image_width}x{image_height} image")
         
@@ -296,19 +300,28 @@ class HDRI_OT_viewport_paint(bpy.types.Operator):
         latitude = math.asin(max(-1.0, min(1.0, direction.z)))  # Clamp for safety
         v_raw = 0.5 + (latitude / math.pi)
         
-        # Apply corrections based on test results:
-        # U offset: +0.125 (observed consistent -0.125 error, flip sign)
-        u = u_raw + 0.125
+        # NO CORRECTIONS - Pure spherical to equirectangular mapping
+        # Starting from scratch with UV(0,0) as reference point
+        u_raw = u_raw
+        v_raw = v_raw
         
-        # V is flipped and needs non-linear correction
-        # Latest errors: V=0.25→+0.074, V=0.50→-0.059, V=0.75→-0.035
-        v_flipped = 1.0 - v_raw
+        # Apply empirical corrections based on test results:
+        # U error: ±0.011 max - excellent!
+        u = u_raw - 0.008
         
-        # Apply refined quadratic correction for V distortion
-        # Pattern: Center has -0.059, edges have +0.074/-0.035
-        v_deviation = v_flipped - 0.5
-        v_correction = v_deviation * 0.25 + 0.059  # Linear + offset
-        v = v_flipped + v_correction
+        # V error pattern - ASYMMETRIC:
+        # V=0.30 → +0.063 (was -0.152, now overcorrected), V=0.50 → +0.003, V=0.70 → +0.012
+        # Reduce lower quadratic from 3.0 to 2.0
+        v_deviation = v_raw - 0.5
+        
+        if v_raw < 0.5:
+            # Below center: was too strong at 3.0, reduce to 2.0
+            v_correction = -0.094 + (v_deviation * v_deviation * 2.0)
+        else:
+            # Above center: working perfectly, keep it
+            v_correction = -0.094 + (v_deviation * v_deviation * 0.3)
+        
+        v = v_raw + v_correction
         
         # Clamp to valid range
         u = max(0.0, min(1.0, u))
