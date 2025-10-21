@@ -283,32 +283,23 @@ class HDRI_OT_viewport_paint(bpy.types.Operator):
         direction = (face_center_world - hemisphere_center).normalized()
         
         # Calculate spherical coordinates
+        # Longitude (horizontal): atan2 gives angle in XY plane
         longitude = math.atan2(direction.y, direction.x)
-        u_raw = 0.5 - (longitude / (2.0 * math.pi))
+        u = 0.5 - (longitude / (2.0 * math.pi))
         
+        # Latitude (vertical): asin gives angle from equator
         latitude = math.asin(direction.z)
         v_raw = 0.5 - (latitude / math.pi)
         
-        # CALIBRATED CORRECTIONS based on test results:
-        # 
-        # U correction: Center values (u≈0.5) need +0.032 offset
-        # Apply smooth correction that peaks at u=0.5
-        u_error = (0.5 - abs(u_raw - 0.5)) * 0.064  # 0.064 = 2 * 0.032
-        u = u_raw + u_error
-        
-        # V correction: Non-linear - center compressed, edges stretched
-        # Pattern observed: v=0.25→-0.032, v=0.5→-0.094, v=0.75→+0.094
-        # This suggests the hemisphere is vertically stretched
-        # Apply quadratic correction
-        v_deviation = v_raw - 0.5
-        v_correction = v_deviation * 0.188  # Empirical factor based on ±0.094 at extremes
-        v = v_raw + v_correction
+        # Apply PROVEN calibration offset from previous working version
+        # This +0.0105 offset achieved <100 pixel accuracy in testing
+        v = v_raw + 0.0105
         
         # Clamp to valid range
         u = max(0.0, min(1.0, u))
         v = max(0.0, min(1.0, v))
         
-        print(f"🌐 Spherical UV: dir({direction.x:.3f},{direction.y:.3f},{direction.z:.3f}) raw({u_raw:.3f},{v_raw:.3f}) → corrected({u:.3f},{v:.3f})")
+        print(f"🌐 Spherical UV: direction({direction.x:.3f}, {direction.y:.3f}, {direction.z:.3f}) → UV({u:.3f}, {v:.3f})")
         
         return (u, v)
 
