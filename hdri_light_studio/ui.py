@@ -93,6 +93,23 @@ class HDRI_PT_HemispherePanel(bpy.types.Panel):
                 col.separator()
                 col.label(text="Scale Hemisphere:")
                 col.prop(context.scene.hemisphere_props, "hemisphere_scale", text="Scale", slider=True)
+            
+            # Debug UV Mapping section
+            col.separator()
+            box = layout.box()
+            box.label(text="🔍 Debug UV Mapping", icon='GHOST_ENABLED')
+            
+            debug_col = box.column(align=True)
+            debug_col.operator("hdri_studio.draw_debug_points", text="1. Draw Test Points", icon='OUTLINER_OB_POINTCLOUD')
+            debug_col.operator("hdri_studio.start_debug_tracking", text="2. Start Tracking", icon='REC')
+            debug_col.operator("hdri_studio.stop_debug_tracking", text="3. Stop & Analyze", icon='CHECKMARK')
+            
+            debug_col.separator()
+            debug_col.label(text="How to use:", icon='INFO')
+            debug_col.label(text="1. Draw test points on canvas")
+            debug_col.label(text="2. Start tracking")
+            debug_col.label(text="3. Paint numbered targets")
+            debug_col.label(text="4. Stop & check console")
 
 
 # Panel classes list  

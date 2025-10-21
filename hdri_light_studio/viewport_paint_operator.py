@@ -2,15 +2,27 @@
 HDRI Light Studio - 3D Viewport Paint Operator
 
 This module provides direct 3D painting on the interior surface of hemispheres/spheres.
-Key concept: Find the SECOND (farther) ray intersection to paint on interior surface.
+Key features:
+- SECOND INTERSECTION: Finds interior surface by using second ray hit
+- SPHERICAL UV: Converts 3D position to spherical coordinates for accurate UV mapping
+- DEBUG TRACKING: Integrates with debug_paint_tracker for UV validation
 """
 
 import bpy
 import bmesh
+import math
 from mathutils import Vector
 from bpy_extras import view3d_utils
 import gpu
 from gpu_extras.batch import batch_for_shader
+
+# Import debug tracker for UV validation
+try:
+    from . import debug_paint_tracker
+    DEBUG_AVAILABLE = True
+except ImportError:
+    DEBUG_AVAILABLE = False
+    print("Debug paint tracker not available")
 
 
 class HDRI_OT_viewport_paint(bpy.types.Operator):
@@ -200,7 +212,7 @@ class HDRI_OT_viewport_paint(bpy.types.Operator):
     def apply_paint_at_location(self, hit_location, face_index):
         """Apply paint at the hit location on hemisphere interior"""
         
-        # Get UV coordinate at hit location using Blender's built-in method
+        # Get UV coordinate at hit location using SPHERICAL MAPPING
         uv_coord = self.get_uv_at_face_center(face_index)
         if not uv_coord:
             print(f"Failed to get UV coordinate for face {face_index}")
@@ -208,33 +220,34 @@ class HDRI_OT_viewport_paint(bpy.types.Operator):
         
         print(f"UV coordinate: {uv_coord}")
         
+        # Convert UV to pixel coordinates
+        image_width = self.canvas_image.size[0]
+        image_height = self.canvas_image.size[1]
+        pixel_x = int(uv_coord[0] * image_width)
+        pixel_y = int((1.0 - uv_coord[1]) * image_height)  # Flip Y coordinate
+        
+        print(f"Painting at pixel: ({pixel_x}, {pixel_y}) on {image_width}x{image_height} image")
+        
+        # Record click for debug tracking if enabled
+        if DEBUG_AVAILABLE:
+            debug_paint_tracker.record_paint_click(uv_coord, (pixel_x, pixel_y))
+        
         # Apply paint using direct pixel manipulation
         brush = bpy.context.tool_settings.image_paint.brush
         if brush and self.canvas_image:
-            
-            # Convert UV to pixel coordinates
-            image_width = self.canvas_image.size[0]
-            image_height = self.canvas_image.size[1]
-            pixel_x = int(uv_coord[0] * image_width)
-            pixel_y = int((1.0 - uv_coord[1]) * image_height)  # Flip Y coordinate
-            
-            print(f"Painting at pixel: ({pixel_x}, {pixel_y}) on {image_width}x{image_height} image")
-            
             # Simple brush application
             self.apply_brush_to_image(pixel_x, pixel_y, brush)
 
     def get_uv_at_face_center(self, face_index):
-        """Get UV coordinate at face center - simpler and more reliable"""
+        """
+        Get UV coordinate using SPHERICAL MAPPING for accurate positioning
+        
+        This converts the 3D position on the hemisphere into spherical coordinates (longitude/latitude)
+        which gives much more accurate UV mapping than using the mesh UV coordinates.
+        """
         
         obj = self.hemisphere
         mesh = obj.data
-        
-        # Get UV layer
-        if not mesh.uv_layers.active:
-            print("No active UV layer found")
-            return None
-        
-        uv_layer = mesh.uv_layers.active.data
         
         # Check if face index is valid
         if face_index >= len(mesh.polygons):
@@ -243,18 +256,44 @@ class HDRI_OT_viewport_paint(bpy.types.Operator):
             
         face = mesh.polygons[face_index]
         
-        # Get face UV coordinates and calculate center
-        face_uvs = [uv_layer[i].uv for i in face.loop_indices]
+        # Get face center in local space
+        face_center_local = face.center
         
-        if not face_uvs:
-            print("No UV coordinates found for face")
-            return None
+        # Convert to world space
+        face_center_world = obj.matrix_world @ face_center_local
         
-        # Calculate UV center of face
-        uv_center_x = sum(uv.x for uv in face_uvs) / len(face_uvs)
-        uv_center_y = sum(uv.y for uv in face_uvs) / len(face_uvs)
+        # Get hemisphere center in world space
+        hemisphere_center = obj.location
         
-        return (uv_center_x, uv_center_y)
+        # Calculate direction vector from hemisphere center to face center
+        direction = (face_center_world - hemisphere_center).normalized()
+        
+        # Convert to spherical coordinates
+        # Longitude (theta): angle around Y axis (0 to 2π)
+        # Latitude (phi): angle from equator (-π/2 to π/2)
+        
+        # Calculate longitude (horizontal angle)
+        # atan2(y, x) gives angle in XY plane
+        # We flip the X axis to match HDRI conventions (subtracting from 0.5)
+        longitude = math.atan2(direction.y, direction.x)
+        u = 0.5 - (longitude / (2.0 * math.pi))
+        
+        # Calculate latitude (vertical angle)
+        # asin(z) gives angle from equator
+        latitude = math.asin(direction.z)
+        v_raw = 0.5 - (latitude / math.pi)
+        
+        # Apply calibration offset (determined empirically)
+        # This corrects for any slight misalignment in the hemisphere UV layout
+        v = v_raw + 0.0105
+        
+        # Clamp to valid range
+        u = max(0.0, min(1.0, u))
+        v = max(0.0, min(1.0, v))
+        
+        print(f"🌐 Spherical UV: direction({direction.x:.3f}, {direction.y:.3f}, {direction.z:.3f}) → UV({u:.3f}, {v:.3f})")
+        
+        return (u, v)
 
     def calculate_barycentric(self, point, v0, v1, v2):
         """Calculate barycentric coordinates of point in triangle v0,v1,v2"""
