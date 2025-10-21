@@ -294,16 +294,18 @@ class HDRI_OT_viewport_paint(bpy.types.Operator):
         # atan2(y, x) gives angle in XY plane
         # We flip the X axis to match HDRI conventions (subtracting from 0.5)
         longitude = math.atan2(direction.y, direction.x)
-        u = 0.5 - (longitude / (2.0 * math.pi))
+        u_raw = 0.5 - (longitude / (2.0 * math.pi))
         
         # Calculate latitude (vertical angle)
         # asin(z) gives angle from equator
         latitude = math.asin(direction.z)
         v_raw = 0.5 - (latitude / math.pi)
         
-        # Apply calibration offset (determined empirically)
-        # This corrects for any slight misalignment in the hemisphere UV layout
-        v = v_raw + 0.0105
+        # Apply calibration offsets based on empirical testing
+        # X offset: -0.016 (consistent across all points)
+        # Y offset: Remove the old +0.0105, it's causing non-linear errors
+        u = u_raw - 0.016
+        v = v_raw  # No Y offset for now
         
         # Clamp to valid range
         u = max(0.0, min(1.0, u))
