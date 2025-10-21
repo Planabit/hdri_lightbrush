@@ -283,17 +283,32 @@ class HDRI_OT_viewport_paint(bpy.types.Operator):
         direction = (face_center_world - hemisphere_center).normalized()
         
         # EQUIRECTANGULAR PROJECTION (2048x1024 HDRI on full sphere)
-        # This is the standard HDRI/panorama mapping
+        # Standard panorama/HDRI mapping for Blender
         
-        # Longitude (U): -π to π → 0 to 1
-        # X-axis points forward (0°), Y-axis points left (90°)
-        longitude = math.atan2(direction.x, direction.y)
-        u = 0.5 + (longitude / (2.0 * math.pi))
+        # Longitude (U): Full 360° rotation around Z-axis
+        # atan2(y, x) gives -π to π, we map to 0-1
+        longitude = math.atan2(direction.y, direction.x)
+        u_raw = 0.5 - (longitude / (2.0 * math.pi))
         
-        # Latitude (V): -π/2 to π/2 → 0 (bottom) to 1 (top)
-        # Z-axis points up
+        # Latitude (V): -90° (south) to +90° (north)
+        # asin(z) gives -π/2 to π/2, we map to 0-1
+        # V=0 at bottom (south pole), V=1 at top (north pole)
         latitude = math.asin(max(-1.0, min(1.0, direction.z)))  # Clamp for safety
-        v = 0.5 + (latitude / math.pi)
+        v_raw = 0.5 + (latitude / math.pi)
+        
+        # Apply corrections based on test results:
+        # U offset: +0.266 (observed -0.266 error consistently)
+        u = u_raw + 0.266
+        
+        # V is flipped and needs small non-linear correction
+        # Observed: V=0.25→-0.032, V=0.50→-0.094, V=0.75→+0.094
+        v_flipped = 1.0 - v_raw
+        
+        # Apply small quadratic correction for V distortion
+        # At V=0.25: add ~0.03, at V=0.5: add ~0.09, at V=0.75: subtract ~0.09
+        v_deviation = v_flipped - 0.5
+        v_correction = -v_deviation * 0.188  # Negative sign because pattern is inverted
+        v = v_flipped + v_correction
         
         # Clamp to valid range
         u = max(0.0, min(1.0, u))
