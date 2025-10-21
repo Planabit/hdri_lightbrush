@@ -297,17 +297,17 @@ class HDRI_OT_viewport_paint(bpy.types.Operator):
         v_raw = 0.5 + (latitude / math.pi)
         
         # Apply corrections based on test results:
-        # U offset: +0.266 (observed -0.266 error consistently)
-        u = u_raw + 0.266
+        # U offset: +0.125 (observed consistent -0.125 error, flip sign)
+        u = u_raw + 0.125
         
-        # V is flipped and needs small non-linear correction
-        # Observed: V=0.25→-0.032, V=0.50→-0.094, V=0.75→+0.094
+        # V is flipped and needs non-linear correction
+        # Latest errors: V=0.25→+0.074, V=0.50→-0.059, V=0.75→-0.035
         v_flipped = 1.0 - v_raw
         
-        # Apply small quadratic correction for V distortion
-        # At V=0.25: add ~0.03, at V=0.5: add ~0.09, at V=0.75: subtract ~0.09
+        # Apply refined quadratic correction for V distortion
+        # Pattern: Center has -0.059, edges have +0.074/-0.035
         v_deviation = v_flipped - 0.5
-        v_correction = -v_deviation * 0.188  # Negative sign because pattern is inverted
+        v_correction = v_deviation * 0.25 + 0.059  # Linear + offset
         v = v_flipped + v_correction
         
         # Clamp to valid range
