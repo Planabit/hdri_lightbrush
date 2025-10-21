@@ -36,8 +36,8 @@ class HDRI_OT_viewport_paint(bpy.types.Operator):
         self.hemisphere = None
         self.canvas_image = None
 
-    def execute(self, context):
-        """Simple click-to-paint execution - no modal operation"""
+    def invoke(self, context, event):
+        """Initialize modal painting mode"""
         
         # Find hemisphere object
         self.hemisphere = bpy.data.objects.get("HDRI_Hemisphere")
@@ -46,39 +46,57 @@ class HDRI_OT_viewport_paint(bpy.types.Operator):
             return {'CANCELLED'}
 
         # Get canvas image
-        self.canvas_image = self.get_active_canvas_image(context)
+        self.canvas_image = bpy.data.images.get("HDRI_Canvas")
         if not self.canvas_image:
-            self.report({'ERROR'}, "No canvas image found. Setup 3D painting first.")
+            self.report({'ERROR'}, "No HDRI Canvas found. Create canvas first.")
             return {'CANCELLED'}
 
-        # Enable immediate paint mode
-        self.setup_immediate_paint_mode(context)
-        
-        self.report({'INFO'}, "3D Paint Mode Active - Click on hemisphere to paint")
-        return {'FINISHED'}
-
-    def setup_immediate_paint_mode(self, context):
-        """Setup immediate painting without modal operation"""
-        
         # Setup painting context
-        bpy.ops.object.mode_set(mode='TEXTURE_PAINT')
-        context.scene.tool_settings.image_paint.mode = 'MATERIAL'
+        self.setup_paint_mode(context)
         
-        # Get or create brush
-        if "HDRI_Brush" not in bpy.data.brushes:
-            brush = bpy.data.brushes.new("HDRI_Brush")
-            brush.size = 100
-            brush.strength = 0.8
-            brush.use_alpha = False
-            brush.color = (1.0, 1.0, 1.0)  # White for adding light
-        else:
-            brush = bpy.data.brushes["HDRI_Brush"]
+        # Enter modal mode
+        context.window_manager.modal_handler_add(self)
         
-        context.tool_settings.image_paint.brush = brush
+        self.report({'INFO'}, "3D Paint Mode - Click to paint, ESC to exit")
+        print("\n" + "="*60)
+        print("3D PAINT MODE ACTIVE")
+        print("  LEFT CLICK: Paint on hemisphere interior")
+        print("  ESC: Exit paint mode")
+        print("="*60 + "\n")
         
-        # Set active canvas for painting
-        if self.canvas_image:
-            context.scene.tool_settings.image_paint.canvas = self.canvas_image
+        return {'RUNNING_MODAL'}
+    
+    def modal(self, context, event):
+        """Handle mouse events for painting"""
+        
+        # Exit on ESC
+        if event.type == 'ESC':
+            self.cleanup(context)
+            print("\n3D Paint Mode EXITED\n")
+            return {'FINISHED'}
+        
+        # Paint on left mouse button click
+        if event.type == 'LEFTMOUSE' and event.value == 'PRESS':
+            # Check if mouse is over 3D viewport
+            if context.area and context.area.type == 'VIEW_3D':
+                self.paint_at_cursor(context, event)
+                
+                # Force viewport update
+                context.area.tag_redraw()
+        
+        return {'RUNNING_MODAL'}
+    
+    def execute(self, context):
+        """Fallback execute method - redirects to invoke"""
+        return self.invoke(context, None)
+
+    def setup_paint_mode(self, context):
+        """Setup painting context"""
+        # Make sure we're in object mode
+        try:
+            bpy.ops.object.mode_set(mode='OBJECT')
+        except:
+            pass
 
     def paint_at_cursor(self, context, event):
         """Paint at cursor position using SECOND ray intersection (interior surface)"""
