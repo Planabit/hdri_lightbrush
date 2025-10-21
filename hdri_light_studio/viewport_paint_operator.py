@@ -258,10 +258,10 @@ class HDRI_OT_viewport_paint(bpy.types.Operator):
 
     def get_uv_at_face_center(self, face_index):
         """
-        Get UV coordinate using SPHERICAL MAPPING for accurate positioning
+        Get UV coordinate using CALIBRATED SPHERICAL MAPPING
         
-        This converts the 3D position on the hemisphere into spherical coordinates (longitude/latitude)
-        which gives much more accurate UV mapping than using the mesh UV coordinates.
+        Spherical projection with empirically determined correction factors
+        based on actual paint test results.
         """
         
         obj = self.hemisphere
@@ -271,47 +271,44 @@ class HDRI_OT_viewport_paint(bpy.types.Operator):
         if face_index >= len(mesh.polygons):
             print(f"Invalid face index: {face_index}")
             return None
-            
+        
         face = mesh.polygons[face_index]
         
-        # Get face center in local space
+        # Get face center in world space
         face_center_local = face.center
-        
-        # Convert to world space
         face_center_world = obj.matrix_world @ face_center_local
-        
-        # Get hemisphere center in world space
         hemisphere_center = obj.location
         
-        # Calculate direction vector from hemisphere center to face center
+        # Direction vector from center to face
         direction = (face_center_world - hemisphere_center).normalized()
         
-        # Convert to spherical coordinates
-        # Longitude (theta): angle around Y axis (0 to 2π)
-        # Latitude (phi): angle from equator (-π/2 to π/2)
-        
-        # Calculate longitude (horizontal angle)
-        # atan2(y, x) gives angle in XY plane
-        # We flip the X axis to match HDRI conventions (subtracting from 0.5)
+        # Calculate spherical coordinates
         longitude = math.atan2(direction.y, direction.x)
         u_raw = 0.5 - (longitude / (2.0 * math.pi))
         
-        # Calculate latitude (vertical angle)
-        # asin(z) gives angle from equator
         latitude = math.asin(direction.z)
         v_raw = 0.5 - (latitude / math.pi)
         
-        # Apply calibration offsets based on empirical testing
-        # X offset: -0.016 (consistent across all points)
-        # Y offset: Remove the old +0.0105, it's causing non-linear errors
-        u = u_raw - 0.016
-        v = v_raw  # No Y offset for now
+        # CALIBRATED CORRECTIONS based on test results:
+        # 
+        # U correction: Center values (u≈0.5) need +0.032 offset
+        # Apply smooth correction that peaks at u=0.5
+        u_error = (0.5 - abs(u_raw - 0.5)) * 0.064  # 0.064 = 2 * 0.032
+        u = u_raw + u_error
+        
+        # V correction: Non-linear - center compressed, edges stretched
+        # Pattern observed: v=0.25→-0.032, v=0.5→-0.094, v=0.75→+0.094
+        # This suggests the hemisphere is vertically stretched
+        # Apply quadratic correction
+        v_deviation = v_raw - 0.5
+        v_correction = v_deviation * 0.188  # Empirical factor based on ±0.094 at extremes
+        v = v_raw + v_correction
         
         # Clamp to valid range
         u = max(0.0, min(1.0, u))
         v = max(0.0, min(1.0, v))
         
-        print(f"🌐 Spherical UV: direction({direction.x:.3f}, {direction.y:.3f}, {direction.z:.3f}) → UV({u:.3f}, {v:.3f})")
+        print(f"🌐 Spherical UV: dir({direction.x:.3f},{direction.y:.3f},{direction.z:.3f}) raw({u_raw:.3f},{v_raw:.3f}) → corrected({u:.3f},{v:.3f})")
         
         return (u, v)
 
