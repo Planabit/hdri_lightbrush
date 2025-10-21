@@ -101,15 +101,15 @@ class HDRI_PT_HemispherePanel(bpy.types.Panel):
             
             debug_col = box.column(align=True)
             debug_col.operator("hdri_studio.draw_debug_points", text="1. Draw Test Points", icon='OUTLINER_OB_POINTCLOUD')
-            debug_col.operator("hdri_studio.start_debug_tracking", text="2. Start Tracking", icon='REC')
-            debug_col.operator("hdri_studio.stop_debug_tracking", text="3. Stop & Analyze", icon='CHECKMARK')
+            debug_col.operator("hdri_studio.start_debug_tracking", text="2. Enable Tracking", icon='REC')
             
             debug_col.separator()
-            debug_col.label(text="How to use:", icon='INFO')
-            debug_col.label(text="1. Draw test points on canvas")
-            debug_col.label(text="2. Start tracking")
-            debug_col.label(text="3. Paint numbered targets")
-            debug_col.label(text="4. Stop & check console")
+            debug_col.label(text="→ Now click '3D Paint' above", icon='FORWARD')
+            debug_col.label(text="→ LEFT CLICK targets 1→9", icon='MOUSE_LMB')
+            debug_col.label(text="→ ESC to exit paint mode", icon='EVENT_ESC')
+            
+            debug_col.separator()
+            debug_col.operator("hdri_studio.stop_debug_tracking", text="3. Stop & Analyze", icon='CHECKMARK')
 
 
 # Panel classes list  

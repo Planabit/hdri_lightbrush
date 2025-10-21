@@ -139,8 +139,7 @@ class HDRI_OT_start_debug_tracking(bpy.types.Operator):
     bl_label = "Start Tracking"
     def execute(self, context):
         start_tracking()
-        self.report({'INFO'}, "Tracking started!")
-        bpy.ops.hdri_studio.viewport_paint('INVOKE_DEFAULT')
+        self.report({'INFO'}, "Tracking ON - Now click '3D Paint' button!")
         return {'FINISHED'}
 
 class HDRI_OT_stop_debug_tracking(bpy.types.Operator):
