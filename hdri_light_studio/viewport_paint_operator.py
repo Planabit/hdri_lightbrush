@@ -423,9 +423,6 @@ class HDRI_OT_viewport_paint(bpy.types.Operator):
         except:
             pass
 
-    def execute(self, context):
-        return self.invoke(context, None)
-
 
 # Registration
 classes = [
