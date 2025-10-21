@@ -282,18 +282,18 @@ class HDRI_OT_viewport_paint(bpy.types.Operator):
         # Direction vector from center to face
         direction = (face_center_world - hemisphere_center).normalized()
         
-        # Calculate spherical coordinates
-        # Longitude (horizontal): atan2 gives angle in XY plane
-        longitude = math.atan2(direction.y, direction.x)
-        u = 0.5 - (longitude / (2.0 * math.pi))
+        # EQUIRECTANGULAR PROJECTION (2048x1024 HDRI on full sphere)
+        # This is the standard HDRI/panorama mapping
         
-        # Latitude (vertical): asin gives angle from equator
-        latitude = math.asin(direction.z)
-        v_raw = 0.5 - (latitude / math.pi)
+        # Longitude (U): -π to π → 0 to 1
+        # X-axis points forward (0°), Y-axis points left (90°)
+        longitude = math.atan2(direction.x, direction.y)
+        u = 0.5 + (longitude / (2.0 * math.pi))
         
-        # Apply PROVEN calibration offset from previous working version
-        # This +0.0105 offset achieved <100 pixel accuracy in testing
-        v = v_raw + 0.0105
+        # Latitude (V): -π/2 to π/2 → 0 (bottom) to 1 (top)
+        # Z-axis points up
+        latitude = math.asin(max(-1.0, min(1.0, direction.z)))  # Clamp for safety
+        v = 0.5 + (latitude / math.pi)
         
         # Clamp to valid range
         u = max(0.0, min(1.0, u))
