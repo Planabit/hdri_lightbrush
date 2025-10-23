@@ -512,7 +512,18 @@ class HDRI_OT_hemisphere_add(bpy.types.Operator):
         # Enable transparency display
         hemisphere_obj.show_transparent = True
         
-        self.report({'INFO'}, "Hemisphere added successfully")
+        # AUTOMATICALLY start continuous painting mode
+        try:
+            from . import continuous_paint_handler
+            if continuous_paint_handler.enable_continuous_paint(context):
+                print("✅ Continuous paint auto-started!")
+                self.report({'INFO'}, "Hemisphere added - Paint mode active!")
+            else:
+                self.report({'INFO'}, "Hemisphere added successfully")
+        except Exception as e:
+            print(f"Could not auto-start paint: {e}")
+            self.report({'INFO'}, "Hemisphere added successfully")
+        
         return {'FINISHED'}
 
 

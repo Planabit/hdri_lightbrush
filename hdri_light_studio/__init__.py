@@ -26,6 +26,7 @@ from . import hdri_save
 from . import hemisphere_tools  # hemisphere tools
 from . import viewport_paint_operator  # Working 3D painting with second intersection
 from . import debug_paint_tracker  # UV mapping debug tool
+from . import continuous_paint_handler  # NEW: KeyShot-style continuous painting
 
 # Module registration list (ui_canvas removed - canvas view not needed)
 modules = [
@@ -43,6 +44,7 @@ modules = [
     hemisphere_tools,
     viewport_paint_operator,  # Working 3D painting with second intersection
     debug_paint_tracker,  # UV mapping debug tool
+    continuous_paint_handler,  # NEW: KeyShot-style continuous painting
 ]
 
 def register():

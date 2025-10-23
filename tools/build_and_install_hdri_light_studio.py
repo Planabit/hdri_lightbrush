@@ -297,7 +297,7 @@ try:
     # Check UI panels
     panel_found = False
     for cls in bpy.types.Panel.__subclasses__():
-        if hasattr(cls, 'bl_idname') and 'HDRILS' in cls.bl_idname:
+        if hasattr(cls, 'bl_idname') and 'HDRI_PT' in cls.bl_idname:
             panel_found = True
             break
     
