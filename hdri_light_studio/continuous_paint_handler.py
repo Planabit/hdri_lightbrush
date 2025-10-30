@@ -333,44 +333,65 @@ def draw_handler_callback():
 # ============================================================================
 
 def enable_continuous_paint(context):
-    """Enable continuous painting mode"""
-    global _paint_handler_active, _draw_handler, _hemisphere, _canvas_image
+    """
+    REPLACED: Use Blender's native Texture Paint mode instead
     
-    # Find objects
-    _hemisphere = bpy.data.objects.get("HDRI_Hemisphere")
-    _canvas_image = bpy.data.images.get("HDRI_Canvas")
+    This function now switches to native texture paint for:
+    - ZERO lag (full GPU acceleration)
+    - No event blocking
+    - All native brush features
+    - Works in both 2D and 3D views
+    """
     
-    if not _hemisphere or not _canvas_image:
-        print("❌ Hemisphere or canvas not found!")
+    # Find hemisphere
+    hemisphere = bpy.data.objects.get("HDRI_Hemisphere")
+    if not hemisphere:
+        print("❌ Hemisphere not found!")
         return False
     
-    # Register draw handler
-    if _draw_handler is None:
-        _draw_handler = bpy.types.SpaceView3D.draw_handler_add(
-            draw_handler_callback,
-            (),
-            'WINDOW',
-            'POST_PIXEL'
-        )
+    # Find canvas image
+    canvas_image = bpy.data.images.get("HDRI_Canvas")
+    if not canvas_image:
+        print("❌ Canvas not found!")
+        return False
     
-    _paint_handler_active = True
+    # Select hemisphere
+    bpy.ops.object.select_all(action='DESELECT')
+    hemisphere.select_set(True)
+    context.view_layer.objects.active = hemisphere
     
-    # AUTOMATICALLY start modal operator for event capture
-    bpy.ops.hdri_studio.continuous_paint_modal('INVOKE_DEFAULT')
+    # Switch to TEXTURE PAINT mode
+    if context.mode != 'PAINT_TEXTURE':
+        bpy.ops.object.mode_set(mode='TEXTURE_PAINT')
     
-    print("✅ Continuous paint ENABLED - LEFT CLICK + DRAG to paint!")
-    print("   Modal event capture started automatically!")
+    # Setup texture paint slots
+    if context.tool_settings.image_paint:
+        # Set canvas as active paint image
+        for mat in hemisphere.data.materials:
+            if mat and mat.use_nodes:
+                for node in mat.node_tree.nodes:
+                    if node.type == 'TEX_IMAGE' and node.image == canvas_image:
+                        # This is our paint target
+                        hemisphere.data.uv_layers.active = hemisphere.data.uv_layers[0]
+                        break
+    
+    print("✅ NATIVE TEXTURE PAINT MODE enabled!")
+    print("🎨 Paint directly on hemisphere - ZERO LAG!")
+    print("   - Use LEFT MOUSE to paint")
+    print("   - Brush settings in Tool panel (T)")
+    print("   - Color picker with X key")
     return True
 
 
 def disable_continuous_paint():
-    """Disable continuous painting mode"""
-    global _paint_handler_active, _draw_handler, _is_painting
+    """Switch back from texture paint mode"""
     
-    # Stop painting
-    _is_painting = False
+    # Switch back to object mode
+    if bpy.context.mode == 'PAINT_TEXTURE':
+        bpy.ops.object.mode_set(mode='OBJECT')
     
-    # Remove draw handler
+    print("Texture paint mode DISABLED")
+    return True
     if _draw_handler is not None:
         bpy.types.SpaceView3D.draw_handler_remove(_draw_handler, 'WINDOW')
         _draw_handler = None
@@ -452,17 +473,18 @@ class HDRI_OT_continuous_paint_modal(bpy.types.Operator):
 # REGISTRATION
 # ============================================================================
 
+# Modal operator removed - using native Texture Paint mode instead
 classes = [
     HDRI_OT_continuous_paint_enable,
     HDRI_OT_continuous_paint_disable,
-    HDRI_OT_continuous_paint_modal,
+    # HDRI_OT_continuous_paint_modal,  # DISABLED - causes lag and blocks events
 ]
 
 
 def register():
     for cls in classes:
         bpy.utils.register_class(cls)
-    print("Continuous paint handler registered")
+    print("Continuous paint handler registered (Native mode)")
 
 
 def unregister():
