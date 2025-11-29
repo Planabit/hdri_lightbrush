@@ -1,7 +1,7 @@
-"""
-HDRI Light Studio - Sphere Tools
+﻿"""
+HDRI Light Studio - Hemisphere Tools
 
-This module provides smooth sphere creation and management functionality
+This module provides smooth hemisphere creation and management functionality
 for HDRI preview and 3D painting workflows, based on the sample dome system.
 """
 
@@ -9,119 +9,55 @@ import bpy
 import bmesh
 from mathutils import Vector
 import numpy as np
-import math
 from bpy.app.handlers import persistent
 from bpy.props import FloatProperty, EnumProperty
 from bpy.types import PropertyGroup
 from .geometry.geometry_factory import GEOMETRY_TYPES, create_geometry
 
 
-def apply_calibrated_uv_mapping(obj):
-    """
-    Apply CALIBRATED UV mapping to sphere geometry
-    This is the PROVEN <65px accurate mapping!
-    """
-    
-    mesh = obj.data
-    sphere_center = obj.location
-    
-    # Ensure we have a UV layer
-    if not mesh.uv_layers:
-        mesh.uv_layers.new(name="UVMap")
-    
-    uv_layer = mesh.uv_layers.active.data
-    
-    # Calculate UV for each vertex using CALIBRATED formula
-    for poly in mesh.polygons:
-        for loop_index in poly.loop_indices:
-            loop = mesh.loops[loop_index]
-            vertex = mesh.vertices[loop.vertex_index]
-            
-            # Vertex position in world space
-            vertex_world = obj.matrix_world @ vertex.co
-            
-            # Direction from sphere center
-            direction = (vertex_world - sphere_center).normalized()
-            
-            # Equirectangular projection
-            longitude = math.atan2(direction.y, direction.x)
-            u_raw = 0.5 - (longitude / (2.0 * math.pi))
-            
-            latitude = math.asin(max(-1.0, min(1.0, direction.z)))
-            v_raw = 0.5 + (latitude / math.pi)
-            
-            # CALIBRATED corrections (<65px accuracy!)
-            u = u_raw - 0.008
-            
-            v_deviation = v_raw - 0.5
-            if v_raw < 0.5:
-                v_correction = -0.094 + (v_deviation * v_deviation * 2.0)
-            else:
-                v_correction = -0.094 + (v_deviation * v_deviation * 0.3)
-            
-            v = v_raw + v_correction
-            
-            # Clamp to valid UV range
-            u = max(0.0, min(1.0, u))
-            v = max(0.0, min(1.0, v))
-            
-            # Apply UV coordinates
-            uv_layer[loop_index].uv = (u, v)
-    
-    mesh.update()
-    print("✅ Applied CALIBRATED UV mapping (<65px accuracy!)")
+def update_hemisphere_scale_callback(self, context):
+    """Callback when hemisphere scale property changes"""
+    hemisphere = bpy.data.objects.get("HDRI_Hemisphere")
+    if hemisphere:
+        scale = self.hemisphere_scale
+        hemisphere.scale = (scale, scale, scale)
 
 
-def update_sphere_scale_callback(self, context):
-    """Callback when sphere scale property changes"""
-    sphere = bpy.data.objects.get("HDRI_Preview_Sphere")
-    if sphere:
-        scale = self.sphere_scale
-        sphere.scale = (scale, scale, scale)
-
-
-class SphereProperties(PropertyGroup):
-    """Property group for sphere with scale callback"""
-    
-    sphere_name: StringProperty(
-        name="Sphere Name",
-        description="Name of the preview sphere object",
-        default="HDRI_Preview_Sphere"
-    )
-    
-    sphere_scale: FloatProperty(
-        name="Scale Sphere",
-        description="Scale the sphere",
+class HemisphereProperties(PropertyGroup):
+    """Property group for hemisphere with scale callback"""
+    hemisphere_scale: FloatProperty(
+        name="Scale Hemisphere",
+        description="Scale the hemisphere",
         default=1.0,
         min=0.1,
         max=10.0,
         soft_min=0.1,
         soft_max=5.0,
-        update=update_sphere_scale_callback
+        update=update_hemisphere_scale_callback
     )
     
-    sphere_type: EnumProperty(
+    geometry_type: EnumProperty(
         name="Geometry Type",
         description="Choose the type of geometry to create",
         items=[
-            ('SPHERE', 'Full Sphere', 'Complete sphere for 360° HDRI (Recommended)'),
-            ('HALF_SPHERE', 'Half Sphere (180°)', 'Half sphere for 180° HDRI')
+            ('CLOSED_HEMISPHERE', 'Closed Hemisphere', 'Hemisphere with rounded bottom edge'), 
+            ('SPHERE', 'Full Sphere', 'Complete sphere for 360┬░ HDRI')
         ],
-        default='SPHERE'  # Changed to SPHERE as default!
+        default='CLOSED_HEMISPHERE'
     )
 
 
-def create_sphere_handler():
-    """Create sphere handler like dome handler in sample"""
+def create_hemisphere_handler():
+    """Create hemisphere handler like dome handler in sample"""
     # Check if handler already exists
-    handler = bpy.data.objects.get("HDRI_Preview_Sphere_Handler")
+    handler = bpy.data.objects.get("HDRI_Hemisphere_Handler")
     if handler:
         return handler
     
     # Create empty object as handler
     bpy.ops.object.empty_add(location=(0, 0, 0))
     handler = bpy.context.object
-    handler.name = "HDRI_Preview_Sphere_Handler"
+    handler.name = "HDRI_Hemisphere_Handler"
     
     return handler
 
@@ -129,11 +65,11 @@ def create_sphere_handler():
 
 
 
-def load_dome_as_sphere(name="HDRI_Preview_Sphere", sphere_type='HALF_SPHERE'):
-    """Create sphere using geometry factory based on selected type"""
+def load_dome_as_hemisphere(name="HDRI_Hemisphere", geometry_type='CLOSED_HEMISPHERE'):
+    """Create hemisphere using geometry factory based on selected type"""
     
     # Use geometry factory to create the selected geometry type
-    obj = create_geometry(sphere_type, name, radius=5.0, location=(0, 0, 0))
+    obj = create_geometry(geometry_type, name, radius=5.0, location=(0, 0, 0))
     
     if obj:
         # Link to current collection
@@ -146,8 +82,8 @@ def load_dome_as_sphere(name="HDRI_Preview_Sphere", sphere_type='HALF_SPHERE'):
 
 
 
-def setup_sphere_material(obj, canvas_image=None):
-    """Setup material for sphere based on sample dome implementation"""
+def setup_hemisphere_material(obj, canvas_image=None):
+    """Setup material for hemisphere based on sample dome implementation"""
     
     # Clear existing materials
     obj.data.materials.clear()
@@ -156,23 +92,23 @@ def setup_sphere_material(obj, canvas_image=None):
     dome_material = load_sample_dome_material()
     
     if dome_material:
-        # Assign material to sphere
+        # Assign material to hemisphere
         obj.data.materials.append(dome_material)
         
-        # Assign sphere object to material coordinates (like sample)
-        assign_sphere_to_material_coordinates(obj, dome_material)
+        # Assign hemisphere object to material coordinates (like sample)
+        assign_hemisphere_to_material_coordinates(obj, dome_material)
         
         # FIRST: Assign default white texture to ALL missing texture nodes
         assign_default_texture_to_dome_material(dome_material)
         
         # THEN: Assign canvas image to material if available (IMPROVED - ALL ENV TEXTURE NODES)
         if canvas_image:
-            assign_image_to_sphere_material(dome_material, canvas_image)
+            assign_image_to_hemisphere_material(dome_material, canvas_image)
         
         return dome_material
     else:
         # Fallback to simple material if sample loading fails
-        return create_painting_sphere_material(obj, canvas_image)
+        return create_painting_hemisphere_material(obj, canvas_image)
 
 
 def load_sample_dome_material():
@@ -193,7 +129,7 @@ def load_sample_dome_material():
         
         if data_to.materials:
             dome_material = data_to.materials[0]
-            dome_material.name = "HDRI_Preview_Sphere_Material"
+            dome_material.name = "HDRI_Hemisphere_Material"
             
             print(f"Loaded dome material with {len(data_to.node_groups)} node groups and {len(data_to.images)} images")
             
@@ -212,8 +148,8 @@ def load_sample_dome_material():
     return None
 
 
-def assign_sphere_to_material_coordinates(sphere_obj, material):
-    """Assign sphere object to material coordinates like sample dome"""
+def assign_hemisphere_to_material_coordinates(hemisphere_obj, material):
+    """Assign hemisphere object to material coordinates like sample dome"""
     
     if not material or not material.use_nodes:
         return
@@ -232,16 +168,16 @@ def assign_sphere_to_material_coordinates(sphere_obj, material):
             if vectors_ng:
                 break
     
-    # Assign sphere object to TEX_COORD node
+    # Assign hemisphere object to TEX_COORD node
     if vectors_ng and vectors_ng.node_tree:
         for n in vectors_ng.node_tree.nodes:
             if n.type == 'TEX_COORD':
-                n.object = sphere_obj
+                n.object = hemisphere_obj
                 break
 
 
-def assign_image_to_sphere_material(material, image):
-    """Assign image to ALL texture nodes in sphere material"""
+def assign_image_to_hemisphere_material(material, image):
+    """Assign image to ALL texture nodes in hemisphere material"""
     
     if not material or not material.use_nodes or not image:
         return
@@ -335,8 +271,8 @@ def assign_default_texture_to_dome_material(material):
     print(f"Total Environment Texture nodes with default texture: {replaced_count}")
 
 
-def create_painting_sphere_material(obj, canvas_image=None):
-    """Create clean material optimized for 3D viewport painting on sphere interior"""
+def create_painting_hemisphere_material(obj, canvas_image=None):
+    """Create clean material optimized for 3D viewport painting on hemisphere interior"""
     
     # Create new material
     mat = bpy.data.materials.new(name=f"{obj.name}_Material")
@@ -350,7 +286,7 @@ def create_painting_sphere_material(obj, canvas_image=None):
     nodes = mat.node_tree.nodes
     nodes.clear()
     
-    # Create nodes for see-through sphere (ORIGINAL DOME FUNCTIONS VERSION)
+    # Create nodes for see-through hemisphere (ORIGINAL DOME FUNCTIONS VERSION)
     output = nodes.new(type='ShaderNodeOutputMaterial')
     mix_shader = nodes.new(type='ShaderNodeMixShader')
     transparent = nodes.new(type='ShaderNodeBsdfTransparent')
@@ -399,8 +335,8 @@ def create_painting_sphere_material(obj, canvas_image=None):
     return mat
 
 
-def setup_sphere_collection(sphere_obj, handler_obj):
-    """Setup collection for sphere organization like sample dome"""
+def setup_hemisphere_collection(hemisphere_obj, handler_obj):
+    """Setup collection for hemisphere organization like sample dome"""
     
     # Create or get HDRI_Studio collection
     if "HDRI_Studio" not in bpy.data.collections:
@@ -409,8 +345,8 @@ def setup_sphere_collection(sphere_obj, handler_obj):
     else:
         hdri_collection = bpy.data.collections["HDRI_Studio"]
     
-    # Move sphere and handler to collection
-    for obj in [sphere_obj, handler_obj]:
+    # Move hemisphere and handler to collection
+    for obj in [hemisphere_obj, handler_obj]:
         if obj and obj.name not in hdri_collection.objects:
             hdri_collection.objects.link(obj)
             # Remove from scene collection if it was there
@@ -423,15 +359,15 @@ def setup_sphere_collection(sphere_obj, handler_obj):
     return hdri_collection
 
 
-def setup_sphere_parenting(sphere_obj, handler_obj):
+def setup_hemisphere_parenting(hemisphere_obj, handler_obj):
     """Setup parent-child relationship like sample dome"""
-    # Parent sphere to handler for scaling
-    sphere_obj.parent = handler_obj
-    sphere_obj.parent_type = 'OBJECT'
+    # Parent hemisphere to handler for scaling
+    hemisphere_obj.parent = handler_obj
+    hemisphere_obj.parent_type = 'OBJECT'
 
 
-def setup_sphere_for_painting(obj, canvas_image):
-    """Setup sphere for 3D texture painting with proper UV mapping"""
+def setup_hemisphere_for_painting(obj, canvas_image):
+    """Setup hemisphere for 3D texture painting with proper UV mapping"""
     
     # Make sure we're in object mode
     if bpy.context.mode != 'OBJECT':
@@ -444,12 +380,12 @@ def setup_sphere_for_painting(obj, canvas_image):
     obj.select_set(True)
     bpy.context.view_layer.objects.active = obj
     
-    # Ensure UV mapping exists with CALIBRATED mapping
+    # Ensure UV mapping exists
     if not obj.data.uv_layers:
-        obj.data.uv_layers.new(name="UVMap")
-    
-    # Apply CALIBRATED UV mapping (proven <65px accuracy!)
-    apply_calibrated_uv_mapping(obj)
+        bpy.ops.object.mode_set(mode='EDIT')
+        bpy.ops.mesh.select_all(action='SELECT')
+        bpy.ops.uv.sphere_project()
+        bpy.ops.object.mode_set(mode='OBJECT')
     
     # Setup material and painting
     if canvas_image and obj.data.materials:
@@ -511,19 +447,17 @@ def setup_sphere_for_painting(obj, canvas_image):
     return True
 
 
-class HDRI_OT_sphere_add(bpy.types.Operator):
-    """Add sphere for 360° HDRI preview and painting"""
-    bl_idname = "hdri_studio.sphere_add"
-    bl_label = "Add Preview Sphere"
-    bl_description = "Add a sphere for 360° HDRI preview and painting"
+class HDRI_OT_hemisphere_add(bpy.types.Operator):
+    """Add smooth hemisphere for HDRI preview"""
+    bl_idname = "hdri_studio.hemisphere_add"
+    bl_label = "Add Hemisphere"
+    bl_description = "Add a smooth hemisphere for HDRI preview"
     bl_options = {'REGISTER', 'UNDO'}
 
     def execute(self, context):
-        sphere_props_obj = context.scene.sphere_props
-        
-        # Check if sphere already exists
-        if sphere_props_obj.sphere_name in bpy.data.objects:
-            self.report({'WARNING'}, "Preview sphere already exists")
+        # Check if hemisphere already exists
+        if "HDRI_Hemisphere" in bpy.data.objects:
+            self.report({'WARNING'}, "Hemisphere already exists")
             return {'CANCELLED'}
         
         # Get active canvas image
@@ -536,29 +470,29 @@ class HDRI_OT_sphere_add(bpy.types.Operator):
                         break
         
         # Get selected geometry type from properties
-        sphere_type = context.scene.sphere_props.sphere_type
+        geometry_type = context.scene.hemisphere_props.geometry_type
         
-        # Create sphere handler first (like dome handler in sample)
-        handler_obj = create_sphere_handler()
+        # Create hemisphere handler first (like dome handler in sample)
+        handler_obj = create_hemisphere_handler()
         
-        # Load dome as sphere with selected geometry type
-        sphere_obj = load_dome_as_sphere("HDRI_Preview_Sphere", sphere_type)
+        # Load dome as hemisphere with selected geometry type
+        hemisphere_obj = load_dome_as_hemisphere("HDRI_Hemisphere", geometry_type)
         
-        if not sphere_obj:
-            self.report({'ERROR'}, "Failed to create sphere")
+        if not hemisphere_obj:
+            self.report({'ERROR'}, "Failed to create hemisphere")
             return {'CANCELLED'}
         
         # Setup parent-child relationship for scaling
-        setup_sphere_parenting(sphere_obj, handler_obj)
+        setup_hemisphere_parenting(hemisphere_obj, handler_obj)
         
         # Setup collection and add to scene
-        hdri_collection = setup_sphere_collection(sphere_obj, handler_obj)
+        hdri_collection = setup_hemisphere_collection(hemisphere_obj, handler_obj)
         
         # Setup material with canvas
-        setup_sphere_material(sphere_obj, canvas_image)
+        setup_hemisphere_material(hemisphere_obj, canvas_image)
         
         # Setup for 3D painting
-        setup_sphere_for_painting(sphere_obj, canvas_image)
+        setup_hemisphere_for_painting(hemisphere_obj, canvas_image)
         
         # Set viewport shading to Material Preview for better HDRI visibility
         for area in context.screen.areas:
@@ -572,41 +506,42 @@ class HDRI_OT_sphere_add(bpy.types.Operator):
                         break
         
         # Make visible and selectable
-        sphere_obj.hide_select = False
-        sphere_obj.hide_viewport = False
+        hemisphere_obj.hide_select = False
+        hemisphere_obj.hide_viewport = False
         
         # Enable transparency display
-        sphere_obj.show_transparent = True
+        hemisphere_obj.show_transparent = True
         
-        # AUTOMATICALLY switch to native TEXTURE PAINT mode
+        # AUTOMATICALLY start continuous painting mode
         try:
             from . import continuous_paint_handler
             if continuous_paint_handler.enable_continuous_paint(context):
-                self.report({'INFO'}, "🎨 Preview Sphere added - Paint mode active! (ZERO LAG)")
+                print("Ôťů Continuous paint auto-started!")
+                self.report({'INFO'}, "Hemisphere added - Paint mode active!")
             else:
-                self.report({'INFO'}, "Preview Sphere added successfully")
+                self.report({'INFO'}, "Hemisphere added successfully")
         except Exception as e:
-            print(f"Could not auto-start texture paint: {e}")
-            self.report({'INFO'}, "Preview Sphere added - Switch to Texture Paint mode (Ctrl+Tab)")
+            print(f"Could not auto-start paint: {e}")
+            self.report({'INFO'}, "Hemisphere added successfully")
         
         return {'FINISHED'}
 
 
-class HDRI_OT_sphere_remove(bpy.types.Operator):
-    """Remove preview sphere"""
-    bl_idname = "hdri_studio.sphere_remove"
-    bl_label = "Remove Preview Sphere"
-    bl_description = "Remove the preview sphere from scene"
+class HDRI_OT_hemisphere_remove(bpy.types.Operator):
+    """Remove hemisphere"""
+    bl_idname = "hdri_studio.hemisphere_remove"
+    bl_label = "Remove Hemisphere"
+    bl_description = "Remove the hemisphere from scene"
     bl_options = {'REGISTER', 'UNDO'}
 
     def execute(self, context):
-        # Find and remove sphere and handler
-        sphere_obj = bpy.data.objects.get("HDRI_Preview_Sphere")
-        handler_obj = bpy.data.objects.get("HDRI_Preview_Sphere_Handler")
+        # Find and remove hemisphere and handler
+        hemisphere_obj = bpy.data.objects.get("HDRI_Hemisphere")
+        handler_obj = bpy.data.objects.get("HDRI_Hemisphere_Handler")
         
         removed_count = 0
-        if sphere_obj:
-            bpy.data.objects.remove(sphere_obj, do_unlink=True)
+        if hemisphere_obj:
+            bpy.data.objects.remove(hemisphere_obj, do_unlink=True)
             removed_count += 1
         
         if handler_obj:
@@ -614,9 +549,9 @@ class HDRI_OT_sphere_remove(bpy.types.Operator):
             removed_count += 1
             
         if removed_count > 0:
-            self.report({'INFO'}, "Sphere removed")
+            self.report({'INFO'}, "Hemisphere removed")
         else:
-            self.report({'WARNING'}, "No sphere found")
+            self.report({'WARNING'}, "No hemisphere found")
         
         return {'FINISHED'}
 
@@ -624,17 +559,17 @@ class HDRI_OT_sphere_remove(bpy.types.Operator):
 
 
 
-class HDRI_OT_sphere_paint_setup(bpy.types.Operator):
-    """Setup sphere for 3D painting"""
-    bl_idname = "hdri_studio.sphere_paint_setup"
+class HDRI_OT_hemisphere_paint_setup(bpy.types.Operator):
+    """Setup hemisphere for 3D painting"""
+    bl_idname = "hdri_studio.hemisphere_paint_setup"
     bl_label = "Setup 3D Paint"
-    bl_description = "Setup sphere for 3D texture painting"
+    bl_description = "Setup hemisphere for 3D texture painting"
     bl_options = {'REGISTER', 'UNDO'}
 
     def execute(self, context):
-        sphere_obj = bpy.data.objects.get("HDRI_Preview_Sphere")
-        if not sphere_obj:
-            self.report({'WARNING'}, "No sphere found")
+        hemisphere_obj = bpy.data.objects.get("HDRI_Hemisphere")
+        if not hemisphere_obj:
+            self.report({'WARNING'}, "No hemisphere found")
             return {'CANCELLED'}
         
         # Get canvas image
@@ -651,8 +586,8 @@ class HDRI_OT_sphere_paint_setup(bpy.types.Operator):
             return {'CANCELLED'}
         
         # Setup for painting
-        if setup_sphere_for_painting(sphere_obj, canvas_image):
-            self.report({'INFO'}, "3D painting setup complete. Use texture paint mode to paint on sphere.")
+        if setup_hemisphere_for_painting(hemisphere_obj, canvas_image):
+            self.report({'INFO'}, "3D painting setup complete. Use texture paint mode to paint on hemisphere.")
         else:
             self.report({'ERROR'}, "Failed to setup 3D painting")
         
@@ -661,10 +596,10 @@ class HDRI_OT_sphere_paint_setup(bpy.types.Operator):
 
 # Classes for registration
 classes = [
-    SphereProperties,
-    HDRI_OT_sphere_add,
-    HDRI_OT_sphere_remove,
-    HDRI_OT_sphere_paint_setup,
+    HemisphereProperties,
+    HDRI_OT_hemisphere_add,
+    HDRI_OT_hemisphere_remove,
+    HDRI_OT_hemisphere_paint_setup,
 ]
 
 
@@ -672,22 +607,22 @@ classes = [
 
 
 def register():
-    """Register sphere operators and properties"""
+    """Register hemisphere operators and properties"""
     for cls in classes:
         bpy.utils.register_class(cls)
     
-    # Register sphere properties on scene
-    bpy.types.Scene.sphere_props = bpy.props.PointerProperty(type=SphereProperties)
+    # Register hemisphere properties on scene
+    bpy.types.Scene.hemisphere_props = bpy.props.PointerProperty(type=HemisphereProperties)
     
-    print("HDRI sphere operators registered")
+    print("HDRI hemisphere operators registered")
 
 
 def unregister():
-    """Unregister sphere operators and properties"""
+    """Unregister hemisphere operators and properties"""
     # Remove scene property
-    del bpy.types.Scene.sphere_props
+    del bpy.types.Scene.hemisphere_props
     
     for cls in reversed(classes):
         bpy.utils.unregister_class(cls)
     
-    print("HDRI sphere operators unregistered")
+    print("HDRI hemisphere operators unregistered")

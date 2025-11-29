@@ -1,7 +1,7 @@
 """
 HDRI Light Studio - Automatic 3D Paint Handler
 
-Automatically enables continuous painting on hemisphere interior surface.
+Automatically enables continuous painting on sphere interior surface.
 User doesn't need to press any buttons - paint mode starts automatically.
 Uses DIRECT PIXEL PAINTING with calibrated spherical UV mapping.
 
@@ -10,7 +10,7 @@ Key features:
 - AUTOMATIC: Starts when canvas created, no button pressing  
 - CONTINUOUS: LEFT CLICK + drag painting works naturally
 - CALIBRATED: Uses same accurate UV mapping as debug system (<65px error)
-- INTERIOR SURFACE: Automatically finds second intersection for hemisphere interior
+- INTERIOR SURFACE: Automatically finds second intersection for sphere interior
 - DIRECT PIXEL: Paints directly on pixels using calibrated spherical UV mapping
 
 HOW IT WORKS:
@@ -18,7 +18,7 @@ HOW IT WORKS:
 2. Ray cast finds interior surface (second intersection)
 3. Converts 3D hit location to spherical UV coordinates (calibrated)
 4. Direct pixel painting at UV coordinate
-5. Result: Accurate continuous painting on hemisphere interior!
+5. Result: Accurate continuous painting on sphere interior!
 """
 
 import bpy
@@ -30,7 +30,7 @@ import math
 
 # Global state
 _auto_paint_active = False
-_hemisphere = None
+_sphere = None
 _canvas_image = None
 _paint_override_handler = None
 
@@ -39,7 +39,7 @@ _paint_override_handler = None
 # UV MAPPING - Calibrated Spherical Projection
 # ============================================================================
 
-def get_uv_from_face_center(hemisphere, face_index):
+def get_uv_from_face_center(sphere, face_index):
     """
     Get UV coordinate using CALIBRATED SPHERICAL MAPPING from face center
     
@@ -47,7 +47,7 @@ def get_uv_from_face_center(hemisphere, face_index):
     This is the PROVEN working version with <65px accuracy!
     """
     
-    mesh = hemisphere.data
+    mesh = sphere.data
     
     # Check if face index is valid
     if face_index >= len(mesh.polygons):
@@ -58,11 +58,11 @@ def get_uv_from_face_center(hemisphere, face_index):
     
     # Get face center in world space
     face_center_local = face.center
-    face_center_world = hemisphere.matrix_world @ face_center_local
-    hemisphere_center = hemisphere.location
+    face_center_world = sphere.matrix_world @ face_center_local
+    sphere_center = sphere.location
     
     # Direction vector from center to face
-    direction = (face_center_world - hemisphere_center).normalized()
+    direction = (face_center_world - sphere_center).normalized()
     
     # EQUIRECTANGULAR PROJECTION
     # Longitude (U): Full 360° rotation around Z-axis
@@ -155,22 +155,22 @@ def paint_at_uv(canvas_image, uv_coord, brush_size, brush_color, brush_strength)
     """Find the interior surface intersection point (second intersection)"""
     
     # Transform ray to object space
-    ray_origin_local = hemisphere.matrix_world.inverted() @ ray_origin
-    ray_direction_local = hemisphere.matrix_world.inverted().to_3x3() @ ray_direction
+    ray_origin_local = sphere.matrix_world.inverted() @ ray_origin
+    ray_direction_local = sphere.matrix_world.inverted().to_3x3() @ ray_direction
     
     # Find first intersection
-    success1, location1, normal1, face_index1 = hemisphere.ray_cast(ray_origin_local, ray_direction_local)
+    success1, location1, normal1, face_index1 = sphere.ray_cast(ray_origin_local, ray_direction_local)
     
     if success1:
         # Find second intersection by casting from slightly past the first hit
         offset_distance = 0.001
         new_origin = location1 + ray_direction_local * offset_distance
         
-        success2, location2, normal2, face_index2 = hemisphere.ray_cast(new_origin, ray_direction_local)
+        success2, location2, normal2, face_index2 = sphere.ray_cast(new_origin, ray_direction_local)
         
         if success2:
             # Return second intersection in world space (interior surface)
-            return hemisphere.matrix_world @ location2, face_index2
+            return sphere.matrix_world @ location2, face_index2
     
     return None, None
 
@@ -187,7 +187,7 @@ class PaintOverrideModal(bpy.types.Operator):
         self.last_mouse_pos = (0, 0)
     
     def modal(self, context, event):
-        global _hemisphere, _canvas_image, _auto_paint_active
+        global _sphere, _canvas_image, _auto_paint_active
         
         # Check if auto paint is still active
         if not _auto_paint_active:
@@ -197,8 +197,8 @@ class PaintOverrideModal(bpy.types.Operator):
         if context.area.type != 'VIEW_3D':
             return {'PASS_THROUGH'}
         
-        # Check if hemisphere still exists
-        if not _hemisphere or _hemisphere.name not in bpy.data.objects:
+        # Check if sphere still exists
+        if not _sphere or _sphere.name not in bpy.data.objects:
             return {'PASS_THROUGH'}
         
         # LEFT MOUSE BUTTON - painting
@@ -230,7 +230,7 @@ class PaintOverrideModal(bpy.types.Operator):
     
     def paint_at_mouse(self, context, event):
         """Paint at current mouse position on interior surface using DIRECT PIXEL PAINTING"""
-        global _hemisphere, _canvas_image
+        global _sphere, _canvas_image
         
         try:
             # Get 3D ray from mouse position
@@ -242,12 +242,12 @@ class PaintOverrideModal(bpy.types.Operator):
             ray_direction = view3d_utils.region_2d_to_vector_3d(region, region_3d, mouse_coord)
             
             # Find interior surface intersection (second intersection)
-            interior_location, face_index = find_interior_surface(_hemisphere, ray_origin, ray_direction)
+            interior_location, face_index = find_interior_surface(_sphere, ray_origin, ray_direction)
             
             if interior_location and face_index is not None:
                 # Convert face_index to UV using calibrated spherical mapping
                 # SAME logic as viewport_paint_operator.py (proven working!)
-                uv_coord = get_uv_from_face_center(_hemisphere, face_index)
+                uv_coord = get_uv_from_face_center(_sphere, face_index)
                 
                 if uv_coord:
                     # Get brush settings
@@ -287,17 +287,17 @@ class PaintOverrideModal(bpy.types.Operator):
 # ============================================================================
 
 def enable_auto_paint():
-    """Enable automatic texture paint mode on hemisphere"""
-    global _auto_paint_active, _hemisphere, _canvas_image, _paint_override_handler
+    """Enable automatic texture paint mode on sphere"""
+    global _auto_paint_active, _sphere, _canvas_image, _paint_override_handler
     
     try:
         # Get context
         context = bpy.context
         
-        # Set hemisphere as active object
-        if _hemisphere and _hemisphere.name in bpy.context.view_layer.objects:
-            bpy.context.view_layer.objects.active = _hemisphere
-            _hemisphere.select_set(True)
+        # Set sphere as active object
+        if _sphere and _sphere.name in bpy.context.view_layer.objects:
+            bpy.context.view_layer.objects.active = _sphere
+            _sphere.select_set(True)
             
             # Switch to Texture Paint mode
             if context.object and context.object.mode != 'TEXTURE_PAINT':
@@ -325,7 +325,7 @@ def enable_auto_paint():
             bpy.ops.hdri_studio.paint_override_modal('INVOKE_DEFAULT')
             
             _auto_paint_active = True
-            print("✅ Auto paint mode ENABLED - LEFT CLICK + DRAG to paint on hemisphere interior!")
+            print("✅ Auto paint mode ENABLED - LEFT CLICK + DRAG to paint on sphere interior!")
             
     except Exception as e:
         print(f"❌ Failed to enable auto paint: {e}")
@@ -354,21 +354,21 @@ def disable_auto_paint():
 # ============================================================================
 
 class HDRI_OT_auto_paint_enable(bpy.types.Operator):
-    """Enable automatic 3D painting on hemisphere interior"""
+    """Enable automatic 3D painting on sphere interior"""
     bl_idname = "hdri_studio.auto_paint_enable"
     bl_label = "Enable Auto Paint"
     bl_description = "Start automatic painting mode (like native Blender tool)"
     bl_options = {'REGISTER'}
     
     def execute(self, context):
-        global _hemisphere, _canvas_image
+        global _sphere, _canvas_image
         
-        # Find hemisphere and canvas
-        _hemisphere = bpy.data.objects.get("HDRI_Hemisphere")
+        # Find sphere and canvas
+        _sphere = bpy.data.objects.get("HDRI_Preview_Sphere")
         _canvas_image = bpy.data.images.get("HDRI_Canvas")
         
-        if not _hemisphere:
-            self.report({'ERROR'}, "No HDRI Hemisphere found. Create one first.")
+        if not _sphere:
+            self.report({'ERROR'}, "No HDRI Sphere found. Create one first.")
             return {'CANCELLED'}
         
         if not _canvas_image:

@@ -13,17 +13,17 @@ import numpy as np
 
 
 class HDRI_OT_enable_3d_paint(bpy.types.Operator):
-    """Enable 3D painting mode on hemisphere"""
+    """Enable 3D painting mode on sphere"""
     bl_idname = "hdri_studio.enable_3d_paint"
     bl_label = "Enable 3D Paint"
-    bl_description = "Enable 3D painting mode for hemisphere interior"
+    bl_description = "Enable 3D painting mode for sphere interior"
     bl_options = {'REGISTER', 'UNDO'}
 
     def execute(self, context):
-        # Find hemisphere
-        hemisphere = bpy.data.objects.get("HDRI_Hemisphere")
-        if not hemisphere:
-            self.report({'ERROR'}, "No HDRI Hemisphere found. Create one first.")
+        # Find sphere
+        sphere = bpy.data.objects.get("HDRI_Preview_Sphere")
+        if not sphere:
+            self.report({'ERROR'}, "No HDRI Sphere found. Create one first.")
             return {'CANCELLED'}
 
         # Get canvas image
@@ -32,10 +32,10 @@ class HDRI_OT_enable_3d_paint(bpy.types.Operator):
             self.report({'ERROR'}, "No canvas image found. Setup painting first.")
             return {'CANCELLED'}
 
-        # Select hemisphere
+        # Select sphere
         bpy.ops.object.select_all(action='DESELECT')
-        hemisphere.select_set(True)
-        context.view_layer.objects.active = hemisphere
+        sphere.select_set(True)
+        context.view_layer.objects.active = sphere
 
         # Enter texture paint mode
         bpy.ops.object.mode_set(mode='TEXTURE_PAINT')
@@ -83,13 +83,13 @@ class HDRI_OT_smart_paint_click(bpy.types.Operator):
     """Smart paint click that finds interior surface"""
     bl_idname = "hdri_studio.smart_paint_click"
     bl_label = "Smart Paint Click"
-    bl_description = "Paint on hemisphere interior with smart surface detection"
+    bl_description = "Paint on sphere interior with smart surface detection"
     bl_options = {'REGISTER', 'UNDO'}
 
     @classmethod
     def poll(cls, context):
         return (context.mode == 'PAINT_TEXTURE' and 
-                bpy.data.objects.get("HDRI_Hemisphere") is not None)
+                bpy.data.objects.get("HDRI_Preview_Sphere") is not None)
 
     def execute(self, context):
         return {'FINISHED'}
@@ -97,8 +97,8 @@ class HDRI_OT_smart_paint_click(bpy.types.Operator):
     def invoke(self, context, event):
         """Paint at mouse cursor position on interior surface"""
         
-        hemisphere = bpy.data.objects.get("HDRI_Hemisphere")
-        if not hemisphere or context.mode != 'PAINT_TEXTURE':
+        sphere = bpy.data.objects.get("HDRI_Preview_Sphere")
+        if not sphere or context.mode != 'PAINT_TEXTURE':
             return {'CANCELLED'}
 
         # Get 3D ray from mouse position
@@ -110,7 +110,7 @@ class HDRI_OT_smart_paint_click(bpy.types.Operator):
         ray_direction = view3d_utils.region_2d_to_vector_3d(region, region_3d, mouse_coord)
 
         # Find interior surface intersection
-        interior_location = self.find_interior_surface(hemisphere, ray_origin, ray_direction)
+        interior_location = self.find_interior_surface(sphere, ray_origin, ray_direction)
         
         if interior_location:
             # Convert back to 2D screen coordinates for native paint
@@ -141,26 +141,26 @@ class HDRI_OT_smart_paint_click(bpy.types.Operator):
         print("No interior surface found")
         return {'CANCELLED'}
 
-    def find_interior_surface(self, hemisphere, ray_origin, ray_direction):
+    def find_interior_surface(self, sphere, ray_origin, ray_direction):
         """Find the interior surface intersection point"""
         
         # Transform ray to object space
-        ray_origin_local = hemisphere.matrix_world.inverted() @ ray_origin
-        ray_direction_local = hemisphere.matrix_world.inverted().to_3x3() @ ray_direction
+        ray_origin_local = sphere.matrix_world.inverted() @ ray_origin
+        ray_direction_local = sphere.matrix_world.inverted().to_3x3() @ ray_direction
         
         # Find first intersection
-        success1, location1, normal1, face_index1 = hemisphere.ray_cast(ray_origin_local, ray_direction_local)
+        success1, location1, normal1, face_index1 = sphere.ray_cast(ray_origin_local, ray_direction_local)
         
         if success1:
             # Find second intersection by casting from slightly past the first hit
             offset_distance = 0.001
             new_origin = location1 + ray_direction_local * offset_distance
             
-            success2, location2, normal2, face_index2 = hemisphere.ray_cast(new_origin, ray_direction_local)
+            success2, location2, normal2, face_index2 = sphere.ray_cast(new_origin, ray_direction_local)
             
             if success2:
                 # Return second intersection in world space (interior surface)
-                return hemisphere.matrix_world @ location2
+                return sphere.matrix_world @ location2
         
         return None
 

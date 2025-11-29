@@ -1,4 +1,4 @@
-"""
+﻿"""
 HDRI Light Studio - Continuous Paint Handler (KeyShot-style)
 
 Non-blocking continuous painting without modal operators.
@@ -18,8 +18,6 @@ from bpy_extras import view3d_utils
 import gpu
 from gpu_extras.batch import batch_for_shader
 import math
-import time  # For batch update timing
-import numpy as np  # FAST pixel operations!
 
 
 # Global state
@@ -29,118 +27,92 @@ _mouse_handler = None
 _is_painting = False
 _last_mouse_pos = None
 _last_paint_uv = None  # Track last painted UV for interpolation
-_sphere = None
+_hemisphere = None
 _canvas_image = None
 _paint_throttle_counter = 0
-_paint_throttle_interval = 1  # Paint on EVERY mouse move
+_paint_throttle_interval = 1  # Paint EVERY mouse move for smooth lines
 _pixel_buffer = None  # Cached pixel buffer for batch updates
 _buffer_dirty = False  # Track if buffer needs writing
 _stroke_paint_count = 0  # Count paints in current stroke
-_last_update_time = 0  # Track last canvas update time for batch updates
-_update_interval = 0.001  # IMMEDIATE UPDATE - minden festésnél frissít!
-_last_mouse_pos = None  # Track last mouse position for interpolation
 
 
 # ============================================================================
 # CORE PAINTING FUNCTIONS (from working viewport_paint_operator.py)
 # ============================================================================
 
-def find_interior_surface(sphere, ray_origin, ray_direction):
+def find_interior_surface(hemisphere, ray_origin, ray_direction):
     """Find interior surface (second intersection)"""
     
     # Transform to object space
-    ray_origin_local = sphere.matrix_world.inverted() @ ray_origin
-    ray_direction_local = sphere.matrix_world.inverted().to_3x3() @ ray_direction
+    ray_origin_local = hemisphere.matrix_world.inverted() @ ray_origin
+    ray_direction_local = hemisphere.matrix_world.inverted().to_3x3() @ ray_direction
     
     # First intersection
-    success1, location1, normal1, face_index1 = sphere.ray_cast(ray_origin_local, ray_direction_local)
+    success1, location1, normal1, face_index1 = hemisphere.ray_cast(ray_origin_local, ray_direction_local)
     
     if success1:
         # Second intersection (interior surface)
         offset = 0.001
         new_origin = location1 + ray_direction_local * offset
         
-        success2, location2, normal2, face_index2 = sphere.ray_cast(new_origin, ray_direction_local)
+        success2, location2, normal2, face_index2 = hemisphere.ray_cast(new_origin, ray_direction_local)
         
         if success2:
-            return sphere.matrix_world @ location2, face_index2
+            return hemisphere.matrix_world @ location2, face_index2
     
     return None, None
 
 
-def get_uv_from_face_center(sphere, face_index):
+def get_uv_from_face_center(hemisphere, face_index):
     """
-    Get UV coordinate using CALIBRATED SPHERICAL MAPPING
-    
-    COPIED FROM viewport_paint_operator.py - PROVEN TO WORK!
-    Spherical projection with empirically determined correction factors.
+    EXACT COPY of viewport_paint_operator.py get_uv_at_face_center()
+    Proven <65px accuracy on all 9 test points!
     """
     
-    mesh = sphere.data
+    mesh = hemisphere.data
     
     if face_index >= len(mesh.polygons):
         return None
     
-    # Get the face
     face = mesh.polygons[face_index]
     
-    # Calculate face center in WORLD SPACE
+    # Face center in world space
     face_center_local = face.center
-    face_center_world = sphere.matrix_world @ face_center_local
+    face_center_world = hemisphere.matrix_world @ face_center_local
+    hemisphere_center = hemisphere.location
     
-    # Convert to sphere local space for UV calculation
-    sphere_center = sphere.matrix_world.translation
-    direction = (face_center_world - sphere_center).normalized()
+    # Direction vector
+    direction = (face_center_world - hemisphere_center).normalized()
     
-    # EQUIRECTANGULAR PROJECTION (same as viewport_paint_operator.py)
-    import math
-    
-    # Longitude (U): Full 360° rotation around Z-axis
+    # Equirectangular projection
     longitude = math.atan2(direction.y, direction.x)
     u_raw = 0.5 - (longitude / (2.0 * math.pi))
     
-    # Latitude (V): -90° (south) to +90° (north)
-    latitude = math.asin(max(-1.0, min(1.0, direction.z)))  # Clamp for safety
+    latitude = math.asin(max(-1.0, min(1.0, direction.z)))
     v_raw = 0.5 + (latitude / math.pi)
     
-    # Apply empirical corrections (EXACT COPY from viewport_paint_operator.py):
+    # CALIBRATED corrections (<65px accuracy)
     u = u_raw - 0.008
     
-    # V correction with asymmetric quadratic
     v_deviation = v_raw - 0.5
-    
     if v_raw < 0.5:
-        # Below center
         v_correction = -0.094 + (v_deviation * v_deviation * 2.0)
     else:
-        # Above center
         v_correction = -0.094 + (v_deviation * v_deviation * 0.3)
     
     v = v_raw + v_correction
     
-    # Clamp to valid range
+    # Clamp
     u = max(0.0, min(1.0, u))
     v = max(0.0, min(1.0, v))
-    
-    # 🔍 DEBUG: Disabled to reduce lag - uncomment if needed
-    # if face_index % 50 == 0:
-    #     print(f"🎯 UV calculated: ({u:.4f}, {v:.4f}) | Face: {face_index}")
     
     return (u, v)
 
 
 def interpolate_uv(uv_start, uv_end, steps=5):
-    """Interpolate between two UV coordinates for smooth brush strokes with wraparound detection"""
+    """Interpolate between two UV coordinates for smooth brush strokes"""
     if not uv_start or not uv_end:
         return [uv_end] if uv_end else []
-    
-    # Check for wraparound (crossing UV seam at u=0/u=1)
-    u_diff = abs(uv_end[0] - uv_start[0])
-    
-    # If U difference is > 0.5, we're crossing the seam - DON'T interpolate
-    if u_diff > 0.5:
-        # Just return end point, no interpolation across seam
-        return [uv_end]
     
     interpolated = []
     for i in range(steps + 1):
@@ -154,10 +126,10 @@ def interpolate_uv(uv_start, uv_end, steps=5):
 
 def paint_at_uv(canvas_image, uv_coord, brush_size, brush_color, brush_strength, force_update=False):
     """
-    ULTRA FAST NUMPY-BASED paint using CALIBRATED UV coordinates
-    Uses numpy for vectorized pixel operations - 10x faster than pure Python!
+    SUPER OPTIMIZED paint using CALIBRATED UV coordinates (<65px accuracy!)
+    Uses cached pixel buffer for batch updates - MUCH faster!
     """
-    global _pixel_buffer, _buffer_dirty, _last_update_time
+    global _pixel_buffer, _buffer_dirty
     
     try:
         width, height = canvas_image.size
@@ -166,52 +138,54 @@ def paint_at_uv(canvas_image, uv_coord, brush_size, brush_color, brush_strength,
         pixel_x = int(uv_coord[0] * width)
         pixel_y = int(uv_coord[1] * height)
         
-        # NUMPY: Load pixels as numpy array (MUCH faster than list!)
-        if _pixel_buffer is None or _pixel_buffer.shape[0] != width * height * 4:
-            _pixel_buffer = np.array(canvas_image.pixels[:], dtype=np.float32)
+        # OPTIMIZATION: Use cached buffer to avoid repeated pixel reads
+        if _pixel_buffer is None or len(_pixel_buffer) != width * height * 4:
+            _pixel_buffer = list(canvas_image.pixels)
         
-        # Calculate brush bounds
-        x_min = max(0, pixel_x - brush_size)
-        x_max = min(width, pixel_x + brush_size + 1)
-        y_min = max(0, pixel_y - brush_size)
-        y_max = min(height, pixel_y + brush_size + 1)
+        # OPTIMIZATION: Pre-calculate brush bounds to minimize loop iterations
+        brush_x_min = max(0, pixel_x - brush_size)
+        brush_x_max = min(width - 1, pixel_x + brush_size)
+        brush_y_min = max(0, pixel_y - brush_size)
+        brush_y_max = min(height - 1, pixel_y + brush_size)
         
-        # Create coordinate grids
-        y_coords, x_coords = np.mgrid[y_min:y_max, x_min:x_max]
+        # Pre-calculate brush size squared for distance check
+        brush_size_sq = brush_size * brush_size
         
-        # Calculate distances from brush center
-        distances = np.sqrt((x_coords - pixel_x)**2 + (y_coords - pixel_y)**2)
-        
-        # Create falloff mask (circular brush with soft edges)
-        falloff = np.clip(1.0 - distances / brush_size, 0.0, 1.0)
-        falloff = falloff ** 2  # Quadratic falloff for smoother blend
-        alpha = falloff * brush_strength
-        
-        # Reshape for broadcasting
-        alpha_4d = alpha[:, :, np.newaxis]
-        
-        # Get pixel indices
-        pixel_indices = (y_coords * width + x_coords) * 4
-        
-        # Vectorized color blending (only where brush affects)
-        mask = distances <= brush_size
-        for dy in range(y_max - y_min):
-            for dx in range(x_max - x_min):
-                if mask[dy, dx]:
-                    idx = int(pixel_indices[dy, dx])
-                    a = alpha[dy, dx]
+        # FAST painting loop - only iterate over brush area
+        for ty in range(brush_y_min, brush_y_max + 1):
+            for tx in range(brush_x_min, brush_x_max + 1):
+                # Distance from center (squared to avoid sqrt)
+                dx = tx - pixel_x
+                dy = ty - pixel_y
+                dist_sq = dx * dx + dy * dy
+                
+                if dist_sq <= brush_size_sq:
+                    # Calculate actual distance only when needed
+                    dist = dist_sq ** 0.5
+                    
+                    # Smooth falloff (softer edges)
+                    falloff = max(0.0, 1.0 - (dist / brush_size))
+                    falloff = falloff * falloff  # Quadratic falloff for smoother blend
+                    
+                    # Apply strength
+                    alpha = falloff * brush_strength
+                    
+                    # Pixel index in flat array (RGBA format)
+                    pixel_idx = (ty * width + tx) * 4
+                    
+                    # FAST blend: Only modify RGB in cached buffer, leave A unchanged
                     for c in range(3):
-                        _pixel_buffer[idx + c] = _pixel_buffer[idx + c] * (1.0 - a) + brush_color[c] * a
+                        old_val = _pixel_buffer[pixel_idx + c]
+                        new_val = brush_color[c]
+                        _pixel_buffer[pixel_idx + c] = old_val * (1.0 - alpha) + new_val * alpha
         
         _buffer_dirty = True
         
-        # BATCH UPDATE: Only update canvas at 60 FPS max
-        current_time = time.time()
-        if force_update or (current_time - _last_update_time) >= _update_interval:
-            canvas_image.pixels.foreach_set(_pixel_buffer)
-            canvas_image.update()
-            _buffer_dirty = False
-            _last_update_time = current_time
+        # CRITICAL: ALWAYS update for immediate visual feedback (no lag feel)
+        # Write cached buffer to image - foreach_set is MUCH faster than pixels[:] =
+        canvas_image.pixels.foreach_set(_pixel_buffer)
+        canvas_image.update()
+        _buffer_dirty = False
         
         return True
         
@@ -226,7 +200,7 @@ def paint_at_uv(canvas_image, uv_coord, brush_size, brush_color, brush_strength,
 
 def mouse_event_handler(context, event):
     """Handle mouse events for continuous painting with smooth brush strokes"""
-    global _is_painting, _last_mouse_pos, _sphere, _canvas_image
+    global _is_painting, _last_mouse_pos, _hemisphere, _canvas_image
     global _paint_throttle_counter, _paint_throttle_interval
     
     # Only in 3D viewport
@@ -250,16 +224,21 @@ def mouse_event_handler(context, event):
             _last_mouse_pos = None
             _paint_throttle_counter = 0
     
-    # MOUSE MOVE while painting - CONTINUOUS STROKE (no throttle!)
+    # MOUSE MOVE while painting - CONTINUOUS STROKE
     elif event.type == 'MOUSEMOVE' and _is_painting:
-        paint_at_mouse(context, event, is_stroke_continue=True)
+        # Paint on EVERY mouse move for smooth continuous lines
+        # Interpolation handles the smoothness
+        _paint_throttle_counter += 1
+        if _paint_throttle_counter >= _paint_throttle_interval:
+            paint_at_mouse(context, event, is_stroke_continue=True)
+            _paint_throttle_counter = 0
 
 
 def paint_at_mouse(context, event, is_stroke_start=False, is_stroke_continue=False, is_stroke_end=False):
     """Paint at current mouse position with SMOOTH interpolation for continuous brush feel"""
-    global _sphere, _canvas_image, _last_paint_uv, _stroke_paint_count
+    global _hemisphere, _canvas_image, _last_paint_uv, _stroke_paint_count
     
-    if not _sphere or not _canvas_image:
+    if not _hemisphere or not _canvas_image:
         return
     
     try:
@@ -271,18 +250,18 @@ def paint_at_mouse(context, event, is_stroke_start=False, is_stroke_continue=Fal
         ray_origin = view3d_utils.region_2d_to_origin_3d(region, region_3d, mouse_coord)
         ray_direction = view3d_utils.region_2d_to_vector_3d(region, region_3d, mouse_coord)
         
-        # Find interior surface (second intersection) - CRITICAL for sphere interior!
-        interior_location, face_index = find_interior_surface(_sphere, ray_origin, ray_direction)
+        # Find interior surface (second intersection) - CRITICAL for hemisphere interior!
+        interior_location, face_index = find_interior_surface(_hemisphere, ray_origin, ray_direction)
         
         if interior_location and face_index is not None:
             # Get CALIBRATED UV coordinates (<65px accuracy!)
-            uv_coord = get_uv_from_face_center(_sphere, face_index)
+            uv_coord = get_uv_from_face_center(_hemisphere, face_index)
             
             if uv_coord:
                 # Get brush settings
                 props = context.scene.hdri_studio
                 
-                # ✨ INTERPOLATE for smooth continuous lines
+                # SMOOTH BRUSH STROKES: Interpolate between last and current position
                 uv_coords_to_paint = []
                 
                 if is_stroke_start or _last_paint_uv is None:
@@ -290,23 +269,24 @@ def paint_at_mouse(context, event, is_stroke_start=False, is_stroke_continue=Fal
                     uv_coords_to_paint = [uv_coord]
                     _stroke_paint_count = 0
                 else:
-                    # Interpolate between last and current position for smooth line
-                    # Use MORE steps for SMOOTH CONTINUOUS LINE (10 steps)
-                    uv_coords_to_paint = interpolate_uv(_last_paint_uv, uv_coord, steps=10)
+                    # Interpolate for smooth continuous line
+                    # More steps = smoother but slower
+                    steps = 3  # Good balance between smoothness and performance
+                    uv_coords_to_paint = interpolate_uv(_last_paint_uv, uv_coord, steps)
                 
-                # Paint all interpolated positions - ALWAYS force update for immediate feedback!
-                for i, uv in enumerate(uv_coords_to_paint):
+                # Paint all interpolated positions
+                for uv in uv_coords_to_paint:
                     paint_at_uv(
                         _canvas_image,
                         uv,
                         props.brush_size,
                         props.brush_color[:3],
                         props.brush_intensity,
-                        force_update=True  # ALWAYS update - immediate visual feedback!
+                        force_update=True  # Always update for immediate feedback
                     )
                     _stroke_paint_count += 1
                 
-                # Remember this position
+                # Remember this position for next interpolation
                 _last_paint_uv = uv_coord
                 
                 # Debug tracking (only for last position)
@@ -316,12 +296,12 @@ def paint_at_mouse(context, event, is_stroke_start=False, is_stroke_continue=Fal
                         pixel_x = int(uv_coord[0] * _canvas_image.size[0])
                         pixel_y = int(uv_coord[1] * _canvas_image.size[1])
                         debug_paint_tracker.record_paint_click(uv_coord, (pixel_x, pixel_y))
-                except Exception as e:
-                    pass  # Silent fail for debug tracking
+                except:
+                    pass
                 
-                # Update material nodes for GPU texture refresh (only at stroke end)
-                if is_stroke_end and _sphere.active_material and _sphere.active_material.use_nodes:
-                    for node in _sphere.active_material.node_tree.nodes:
+                # Update material nodes for GPU texture refresh
+                if _hemisphere.active_material and _hemisphere.active_material.use_nodes:
+                    for node in _hemisphere.active_material.node_tree.nodes:
                         if node.type == 'TEX_IMAGE' and node.image == _canvas_image:
                             node.image.update()
                             node.image.update_tag()
@@ -332,6 +312,7 @@ def paint_at_mouse(context, event, is_stroke_start=False, is_stroke_continue=Fal
                 # Reset last position at stroke end
                 if is_stroke_end:
                     _last_paint_uv = None
+                    print(f"Stroke complete: {_stroke_paint_count} paint operations")
     
     except Exception as e:
         print(f"Paint error: {e}")
@@ -352,24 +333,18 @@ def draw_handler_callback():
 # ============================================================================
 
 def enable_continuous_paint(context):
-    """
-    Enable continuous painting with REAL UV from mesh (sphere_project)
-    Uses modal operator for event capture with PASS_THROUGH
-    """
-    global _paint_handler_active, _draw_handler, _sphere, _canvas_image
+    """Enable continuous painting mode"""
+    global _paint_handler_active, _draw_handler, _hemisphere, _canvas_image
     
     # Find objects
-    _sphere = bpy.data.objects.get("HDRI_Preview_Sphere")
+    _hemisphere = bpy.data.objects.get("HDRI_Hemisphere")
     _canvas_image = bpy.data.images.get("HDRI_Canvas")
     
-    if not _sphere or not _canvas_image:
-        print("❌ Sphere or canvas not found!")
+    if not _hemisphere or not _canvas_image:
+        print("ÔŁî Hemisphere or canvas not found!")
         return False
     
-    # DON'T change mode - let user stay in whatever mode they want!
-    # The modal will handle 3D viewport painting independently
-    
-    # Register draw handler for visual feedback
+    # Register draw handler
     if _draw_handler is None:
         _draw_handler = bpy.types.SpaceView3D.draw_handler_add(
             draw_handler_callback,
@@ -380,13 +355,11 @@ def enable_continuous_paint(context):
     
     _paint_handler_active = True
     
-    # Start modal operator for event capture
+    # AUTOMATICALLY start modal operator for event capture
     bpy.ops.hdri_studio.continuous_paint_modal('INVOKE_DEFAULT')
     
-    print("✅ Continuous paint ENABLED!")
-    print("   - LEFT CLICK + DRAG to paint in 3D viewport")
-    print("   - 2D paint works independently in IMAGE_EDITOR")
-    print("   - Press ESC to exit")
+    print("Ôťů Continuous paint ENABLED - LEFT CLICK + DRAG to paint!")
+    print("   Modal event capture started automatically!")
     return True
 
 
@@ -422,7 +395,7 @@ class HDRI_OT_continuous_paint_enable(bpy.types.Operator):
             self.report({'INFO'}, "Continuous paint enabled - LEFT CLICK + DRAG!")
             return {'FINISHED'}
         else:
-            self.report({'ERROR'}, "Failed to enable - create sphere and canvas first")
+            self.report({'ERROR'}, "Failed to enable - create hemisphere and canvas first")
             return {'CANCELLED'}
 
 
@@ -448,58 +421,31 @@ class HDRI_OT_continuous_paint_modal(bpy.types.Operator):
     bl_label = "Continuous Paint Modal"
     bl_description = "Background event capture for continuous painting"
     
-    _timer = None
-    
     def modal(self, context, event):
         global _paint_handler_active, _is_painting
         
         # Stop if disabled
         if not _paint_handler_active:
-            self.cancel(context)
             return {'CANCELLED'}
         
-        # Timer event - keep modal alive
-        if event.type == 'TIMER':
-            return {'PASS_THROUGH'}
-        
-        # ESC to cancel
-        if event.type == 'ESC' and event.value == 'PRESS':
-            self.cancel(context)
-            disable_continuous_paint()
-            return {'CANCELLED'}
-        
-        # CRITICAL: Only handle painting in 3D viewport
+        # Only capture events in 3D viewport
         if context.area and context.area.type == 'VIEW_3D':
-            # LEFT MOUSE PRESS - start painting
-            if event.type == 'LEFTMOUSE' and event.value == 'PRESS':
+            # LEFT MOUSE events - consume to prevent double painting
+            if event.type == 'LEFTMOUSE':
                 mouse_event_handler(context, event)
-                return {'RUNNING_MODAL'}  # Consume this event to prevent selection
+                return {'RUNNING_MODAL'}  # CONSUME - prevents Blender from also painting
             
-            # LEFT MOUSE RELEASE - stop painting
-            elif event.type == 'LEFTMOUSE' and event.value == 'RELEASE':
-                mouse_event_handler(context, event)
-                return {'RUNNING_MODAL'}  # Consume to complete the paint action
-            
-            # MOUSE MOVE while painting
+            # MOUSE MOVE while painting - consume to prevent interference
             elif event.type == 'MOUSEMOVE' and _is_painting:
                 mouse_event_handler(context, event)
-                return {'RUNNING_MODAL'}  # Consume while actively painting
+                return {'RUNNING_MODAL'}  # CONSUME while painting
         
-        # Pass through everything else - allows 2D paint, navigation etc.
+        # PASS THROUGH all other events - non-blocking!
         return {'PASS_THROUGH'}
     
     def invoke(self, context, event):
-        # Add timer to keep modal alive without blocking
-        wm = context.window_manager
-        self._timer = wm.event_timer_add(0.1, window=context.window)
-        wm.modal_handler_add(self)
+        context.window_manager.modal_handler_add(self)
         return {'RUNNING_MODAL'}
-    
-    def cancel(self, context):
-        if self._timer:
-            wm = context.window_manager
-            wm.event_timer_remove(self._timer)
-            self._timer = None
 
 
 # ============================================================================
@@ -509,14 +455,14 @@ class HDRI_OT_continuous_paint_modal(bpy.types.Operator):
 classes = [
     HDRI_OT_continuous_paint_enable,
     HDRI_OT_continuous_paint_disable,
-    HDRI_OT_continuous_paint_modal,  # Using REAL mesh UV coordinates!
+    HDRI_OT_continuous_paint_modal,
 ]
 
 
 def register():
     for cls in classes:
         bpy.utils.register_class(cls)
-    print("Continuous paint handler registered (MATHEMATICAL UV - HEUREKA version)")
+    print("Continuous paint handler registered")
 
 
 def unregister():

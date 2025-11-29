@@ -5,8 +5,8 @@ from mathutils import Vector
 
 
 
-def create_closed_hemisphere(name="Closed_Hemisphere", radius=10.0, location=(0, 0, 0)):
-    """Create a closed hemisphere with rounded bottom edge"""
+def create_half_sphere(name="Closed_Sphere", radius=10.0, location=(0, 0, 0)):
+    """Create a closed sphere with rounded bottom edge"""
     
     # Create mesh and object
     mesh = bpy.data.meshes.new(name + "_mesh")
@@ -15,10 +15,13 @@ def create_closed_hemisphere(name="Closed_Hemisphere", radius=10.0, location=(0,
     # Create bmesh instance
     bm = bmesh.new()
     
-    # Create UV sphere and select upper hemisphere
+    # Create UV sphere and select upper sphere
     bmesh.ops.create_uvsphere(bm, u_segments=32, v_segments=16, radius=radius)
     
-    # Remove lower hemisphere vertices but keep some for rounded edge
+    # NOTE: We don't create UV mapping here - sphere_project() will do it properly
+    # The bmesh UV is cylindrical, but we'll use bpy.ops.uv.sphere_project() later
+    
+    # Remove lower sphere vertices but keep some for rounded edge
     round_radius = radius * 0.1  # 1/10th of main radius for rounding
     verts_to_remove = [v for v in bm.verts if v.co.z < -round_radius]
     bmesh.ops.delete(bm, geom=verts_to_remove, context='VERTS')
@@ -45,7 +48,7 @@ def create_closed_hemisphere(name="Closed_Hemisphere", radius=10.0, location=(0,
                 vert.co.y *= scale_factor
                 vert.co.z = new_z
     
-    # Fill the bottom hole to create a closed hemisphere
+    # Fill the bottom hole to create a closed sphere
     bottom_edges = [e for e in bm.edges if e.is_boundary]
     if bottom_edges:
         bmesh.ops.holes_fill(bm, edges=bottom_edges)
@@ -83,6 +86,9 @@ def create_sphere(name="Sphere", radius=10.0, location=(0, 0, 0)):
     # Create UV sphere
     bmesh.ops.create_uvsphere(bm, u_segments=32, v_segments=16, radius=radius)
     
+    # NOTE: We don't create UV mapping here - sphere_project() will do it properly
+    # The bmesh UV is cylindrical, but we'll use bpy.ops.uv.sphere_project() later
+    
     # Flip normals to face inward
     bmesh.ops.reverse_faces(bm, faces=bm.faces)
     
@@ -102,10 +108,10 @@ def create_sphere(name="Sphere", radius=10.0, location=(0, 0, 0)):
 
 # Geometry type registry
 GEOMETRY_TYPES = {
-    'CLOSED_HEMISPHERE': {
-        'name': 'Closed Hemisphere', 
-        'description': 'Hemisphere with rounded bottom edge',
-        'create_func': create_closed_hemisphere
+    'HALF_SPHERE': {
+        'name': 'Half Sphere (180°)', 
+        'description': 'Half sphere for 180° HDRI',
+        'create_func': create_half_sphere
     },
     'SPHERE': {
         'name': 'Full Sphere',
@@ -115,12 +121,12 @@ GEOMETRY_TYPES = {
 }
 
 
-def create_geometry(geometry_type, name, radius=10.0, location=(0, 0, 0)):
+def create_geometry(sphere_type, name, radius=10.0, location=(0, 0, 0)):
     """Factory function to create geometry based on type"""
     
-    if geometry_type in GEOMETRY_TYPES:
-        create_func = GEOMETRY_TYPES[geometry_type]['create_func']
+    if sphere_type in GEOMETRY_TYPES:
+        create_func = GEOMETRY_TYPES[sphere_type]['create_func']
         return create_func(name, radius, location)
     else:
-        # Default to closed hemisphere
-        return create_closed_hemisphere(name, radius, location)
+        # Default to closed sphere
+        return create_half_sphere(name, radius, location)

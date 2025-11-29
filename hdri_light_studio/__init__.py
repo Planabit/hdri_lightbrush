@@ -23,12 +23,13 @@ from . import world_properties
 from . import world_operators
 from . import world_ui
 from . import hdri_save
-from . import hemisphere_tools  # hemisphere tools
+from . import sphere_tools  # Sphere preview tools
 from . import viewport_paint_operator  # Working 3D painting with second intersection
 from . import debug_paint_tracker  # UV mapping debug tool
-from . import continuous_paint_handler  # NEW: KeyShot-style continuous painting
+from . import continuous_paint_handler  # RESTORED: This paints to CORRECT location!
+# from . import paint_on_click  # DISABLED - wrong location
 
-# Module registration list (ui_canvas removed - canvas view not needed)
+# Module registration list
 modules = [
     properties,
     operators,
@@ -41,10 +42,11 @@ modules = [
     world_operators,
     world_ui,
     hdri_save,
-    hemisphere_tools,
-    viewport_paint_operator,  # Working 3D painting with second intersection
-    debug_paint_tracker,  # UV mapping debug tool
-    continuous_paint_handler,  # NEW: KeyShot-style continuous painting
+    sphere_tools,
+    viewport_paint_operator,
+    debug_paint_tracker,
+    continuous_paint_handler,  # RESTORED: Correct location painting!
+    # paint_on_click,  # DISABLED
 ]
 
 def register():
@@ -57,6 +59,7 @@ def register():
         # Register scene properties
         bpy.types.Scene.hdri_studio = PointerProperty(type=properties.HDRIStudioProperties)
         bpy.types.Scene.hdri_studio_world = PointerProperty(type=world_properties.HDRIStudioWorldProperties)
+        bpy.types.Scene.sphere_props = PointerProperty(type=sphere_tools.SphereProperties)
         
         print("HDRI Light Studio registered successfully")
         
@@ -71,6 +74,8 @@ def unregister():
             del bpy.types.Scene.hdri_studio
         if hasattr(bpy.types.Scene, 'hdri_studio_world'):
             del bpy.types.Scene.hdri_studio_world
+        if hasattr(bpy.types.Scene, 'sphere_props'):
+            del bpy.types.Scene.sphere_props
         
         # Unregister all modules in reverse order
         for module in reversed(modules):

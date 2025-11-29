@@ -11,7 +11,7 @@ from mathutils import Vector
 import numpy as np
 import math
 from bpy.app.handlers import persistent
-from bpy.props import FloatProperty, EnumProperty
+from bpy.props import FloatProperty, EnumProperty, StringProperty
 from bpy.types import PropertyGroup
 from .geometry.geometry_factory import GEOMETRY_TYPES, create_geometry
 
@@ -444,12 +444,13 @@ def setup_sphere_for_painting(obj, canvas_image):
     obj.select_set(True)
     bpy.context.view_layer.objects.active = obj
     
-    # Ensure UV mapping exists with CALIBRATED mapping
+    # Ensure UV mapping exists using Blender's sphere projection
     if not obj.data.uv_layers:
-        obj.data.uv_layers.new(name="UVMap")
-    
-    # Apply CALIBRATED UV mapping (proven <65px accuracy!)
-    apply_calibrated_uv_mapping(obj)
+        bpy.ops.object.mode_set(mode='EDIT')
+        bpy.ops.mesh.select_all(action='SELECT')
+        bpy.ops.uv.sphere_project()
+        bpy.ops.object.mode_set(mode='OBJECT')
+        print(f"✅ Created UV mapping with sphere_project()")
     
     # Setup material and painting
     if canvas_image and obj.data.materials:
@@ -578,16 +579,16 @@ class HDRI_OT_sphere_add(bpy.types.Operator):
         # Enable transparency display
         sphere_obj.show_transparent = True
         
-        # AUTOMATICALLY switch to native TEXTURE PAINT mode
+        # RESTORED: Auto-start continuous paint modal (correct location!)
         try:
             from . import continuous_paint_handler
             if continuous_paint_handler.enable_continuous_paint(context):
-                self.report({'INFO'}, "🎨 Preview Sphere added - Paint mode active! (ZERO LAG)")
+                self.report({'INFO'}, "🎨 Preview Sphere added - 3D Paint active!")
             else:
                 self.report({'INFO'}, "Preview Sphere added successfully")
         except Exception as e:
-            print(f"Could not auto-start texture paint: {e}")
-            self.report({'INFO'}, "Preview Sphere added - Switch to Texture Paint mode (Ctrl+Tab)")
+            print(f"Could not auto-start 3D paint: {e}")
+            self.report({'INFO'}, "Preview Sphere added")
         
         return {'FINISHED'}
 
@@ -676,17 +677,11 @@ def register():
     for cls in classes:
         bpy.utils.register_class(cls)
     
-    # Register sphere properties on scene
-    bpy.types.Scene.sphere_props = bpy.props.PointerProperty(type=SphereProperties)
-    
     print("HDRI sphere operators registered")
 
 
 def unregister():
     """Unregister sphere operators and properties"""
-    # Remove scene property
-    del bpy.types.Scene.sphere_props
-    
     for cls in reversed(classes):
         bpy.utils.unregister_class(cls)
     

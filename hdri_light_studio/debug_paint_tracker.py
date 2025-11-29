@@ -160,16 +160,39 @@ def record_paint_click(uv_coord, pixel_coord):
 class HDRI_OT_draw_debug_points(bpy.types.Operator):
     bl_idname = "hdri_studio.draw_debug_points"
     bl_label = "Draw Test Points"
+    bl_description = "Draw 9 numbered test points on the HDRI canvas for calibration"
+    bl_options = {'REGISTER', 'UNDO'}
+    
     def execute(self, context):
+        print("\n🎯 Drawing test points...")
         canvas_image = bpy.data.images.get("HDRI_Canvas")
-        if canvas_image:
+        
+        if not canvas_image:
+            print("❌ HDRI_Canvas not found!")
+            self.report({'ERROR'}, "Create canvas first!")
+            return {'CANCELLED'}
+        
+        print(f"✅ Found canvas: {canvas_image.name} ({canvas_image.size[0]}x{canvas_image.size[1]})")
+        
+        try:
             draw_numbered_targets_on_canvas(canvas_image)
             self.report({'INFO'}, "Drew test points!")
+            print("✅ Test points drawn successfully!")
+        except Exception as e:
+            print(f"❌ Error drawing test points: {e}")
+            import traceback
+            traceback.print_exc()
+            self.report({'ERROR'}, f"Failed: {e}")
+            return {'CANCELLED'}
+        
         return {'FINISHED'}
 
 class HDRI_OT_start_debug_tracking(bpy.types.Operator):
     bl_idname = "hdri_studio.start_debug_tracking"
     bl_label = "Start Tracking"
+    bl_description = "Begin tracking UV coordinates when you click on the sphere"
+    bl_options = {'REGISTER'}
+    
     def execute(self, context):
         start_tracking()
         self.report({'INFO'}, "Tracking ON - Now click '3D Paint' button!")
@@ -178,6 +201,9 @@ class HDRI_OT_start_debug_tracking(bpy.types.Operator):
 class HDRI_OT_stop_debug_tracking(bpy.types.Operator):
     bl_idname = "hdri_studio.stop_debug_tracking"
     bl_label = "Stop & Analyze"
+    bl_description = "Stop tracking and analyze UV coordinate accuracy"
+    bl_options = {'REGISTER'}
+    
     def execute(self, context):
         stop_tracking()
         self.report({'INFO'}, "Check console!")
@@ -186,8 +212,11 @@ class HDRI_OT_stop_debug_tracking(bpy.types.Operator):
 classes = [HDRI_OT_draw_debug_points, HDRI_OT_start_debug_tracking, HDRI_OT_stop_debug_tracking]
 
 def register():
+    print("\n🔧 DEBUG_PAINT_TRACKER: Starting registration...")
     for cls in classes:
+        print(f"   Registering: {cls.bl_idname} ({cls.__name__})")
         bpy.utils.register_class(cls)
+    print("✅ DEBUG_PAINT_TRACKER: All operators registered!")
 
 def unregister():
     for cls in reversed(classes):

@@ -1,7 +1,7 @@
 """
 HDRI Light Studio - 3D Viewport Paint Operator
 
-This module provides direct 3D painting on the interior surface of hemispheres/spheres.
+This module provides direct 3D painting on the interior surface of spheres/spheres.
 Key features:
 - SECOND INTERSECTION: Finds interior surface by using second ray hit
 - SPHERICAL UV: Converts 3D position to spherical coordinates for accurate UV mapping
@@ -26,23 +26,23 @@ except ImportError:
 
 
 class HDRI_OT_viewport_paint(bpy.types.Operator):
-    """Direct 3D painting on hemisphere interior surface"""
+    """Direct 3D painting on sphere interior surface"""
     bl_idname = "hdri_studio.viewport_paint"
     bl_label = "3D Viewport Paint"
-    bl_description = "Paint directly on hemisphere interior surface in 3D viewport"
+    bl_description = "Paint directly on sphere interior surface in 3D viewport"
     bl_options = {'REGISTER', 'UNDO'}
 
     def __init__(self):
-        self.hemisphere = None
+        self.sphere = None
         self.canvas_image = None
 
     def invoke(self, context, event):
         """Initialize modal painting mode"""
         
-        # Find hemisphere object
-        self.hemisphere = bpy.data.objects.get("HDRI_Hemisphere")
-        if not self.hemisphere:
-            self.report({'ERROR'}, "No HDRI Hemisphere found. Create one first.")
+        # Find sphere object
+        self.sphere = bpy.data.objects.get("HDRI_Preview_Sphere")
+        if not self.sphere:
+            self.report({'ERROR'}, "No HDRI Sphere found. Create one first.")
             return {'CANCELLED'}
 
         # Get canvas image
@@ -60,7 +60,7 @@ class HDRI_OT_viewport_paint(bpy.types.Operator):
         self.report({'INFO'}, "3D Paint Mode - Click to paint, ESC to exit")
         print("\n" + "="*60)
         print("3D PAINT MODE ACTIVE")
-        print("  LEFT CLICK: Paint on hemisphere interior")
+        print("  LEFT CLICK: Paint on sphere interior")
         print("  ESC: Exit paint mode")
         print("="*60 + "\n")
         
@@ -110,7 +110,7 @@ class HDRI_OT_viewport_paint(bpy.types.Operator):
         ray_origin = view3d_utils.region_2d_to_origin_3d(region, region_3d, mouse_coord)
         ray_direction = view3d_utils.region_2d_to_vector_3d(region, region_3d, mouse_coord)
         
-        # Find ALL intersections with hemisphere (we want the SECOND one)
+        # Find ALL intersections with sphere (we want the SECOND one)
         intersections = self.find_all_ray_intersections(ray_origin, ray_direction)
         
         if len(intersections) >= 2:
@@ -128,31 +128,31 @@ class HDRI_OT_viewport_paint(bpy.types.Operator):
             print(f"Painting at INTERIOR surface (2nd intersection): {hit_location}")
                 
         elif len(intersections) == 1:
-            # Only one intersection - check if camera is inside hemisphere
+            # Only one intersection - check if camera is inside sphere
             hit_location, hit_normal, face_index = intersections[0]
             
-            # If camera inside hemisphere, the single intersection IS the interior surface
-            center = self.hemisphere.location
+            # If camera inside sphere, the single intersection IS the interior surface
+            center = self.sphere.location
             camera_to_center = (center - ray_origin).length
-            hemisphere_radius = self.hemisphere.scale[0] * 2.0  # Approximate hemisphere radius
+            sphere_radius = self.sphere.scale[0] * 2.0  # Approximate sphere radius
             
-            if camera_to_center < hemisphere_radius:
+            if camera_to_center < sphere_radius:
                 # Camera inside - single intersection is interior
                 self.apply_paint_at_location(hit_location, face_index)
-                print(f"Painting from INSIDE hemisphere: {hit_location}")
+                print(f"Painting from INSIDE sphere: {hit_location}")
             else:
                 # Camera outside with only one intersection - this means ray is tangent or grazing
                 # Still paint on it as it's the only option
                 self.apply_paint_at_location(hit_location, face_index)
                 print(f"Painting on single intersection (grazing ray): {hit_location}")
         else:
-            print("No intersections found - ray missed hemisphere")
+            print("No intersections found - ray missed sphere")
 
     def find_all_ray_intersections(self, ray_origin, ray_direction):
-        """Find ALL intersections between ray and hemisphere mesh using multiple ray casts"""
+        """Find ALL intersections between ray and sphere mesh using multiple ray casts"""
         intersections = []
         
-        obj = self.hemisphere
+        obj = self.sphere
         
         # Transform ray to object space for ray_cast
         ray_origin_local = obj.matrix_world.inverted() @ ray_origin
@@ -228,7 +228,7 @@ class HDRI_OT_viewport_paint(bpy.types.Operator):
             return None, None
 
     def apply_paint_at_location(self, hit_location, face_index):
-        """Apply paint at the hit location on hemisphere interior"""
+        """Apply paint at the hit location on sphere interior"""
         
         # Get UV coordinate at hit location using SPHERICAL MAPPING
         uv_coord = self.get_uv_at_face_center(face_index)
@@ -268,7 +268,7 @@ class HDRI_OT_viewport_paint(bpy.types.Operator):
         based on actual paint test results.
         """
         
-        obj = self.hemisphere
+        obj = self.sphere
         mesh = obj.data
         
         # Check if face index is valid
@@ -281,10 +281,10 @@ class HDRI_OT_viewport_paint(bpy.types.Operator):
         # Get face center in world space
         face_center_local = face.center
         face_center_world = obj.matrix_world @ face_center_local
-        hemisphere_center = obj.location
+        sphere_center = obj.location
         
         # Direction vector from center to face
-        direction = (face_center_world - hemisphere_center).normalized()
+        direction = (face_center_world - sphere_center).normalized()
         
         # EQUIRECTANGULAR PROJECTION (2048x1024 HDRI on full sphere)
         # Standard panorama/HDRI mapping for Blender

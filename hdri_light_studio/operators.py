@@ -192,10 +192,16 @@ class HDRI_OT_create_canvas(Operator):
                 image_space = None
                 for space in rightmost_area.spaces:
                     if space.type == 'IMAGE_EDITOR':
-                        space.mode = 'VIEW'
-                        space.show_gizmo = False
+                        # Use UV mode to show mesh UV layout
+                        space.mode = 'UV'
+                        space.show_gizmo = True
+                        
+                        # Enable overlays to see UV mesh
+                        if hasattr(space, 'overlay'):
+                            space.overlay.show_overlays = True
+                        
                         image_space = space
-                        print("Image editor space configured")
+                        print("✅ Image editor configured in UV mode")
                         break
                 
                 if image_space:
@@ -223,23 +229,17 @@ class HDRI_OT_create_canvas(Operator):
             width, height = 1024, 512
             canvas_image = bpy.data.images.new(image_name, width, height, alpha=True)
             
-            # Create simple test pattern
+            # Create simple clean canvas (NO burned-in grid!)
             import numpy as np
             pixels = np.zeros((height, width, 4), dtype=np.float32)
             
-            # Create gradient + checkerboard
+            # Simple gradient background for visibility
             for y in range(height):
                 for x in range(width):
-                    # Basic gradient
-                    r = x / width
-                    g = y / height
-                    b = 0.5
-                    
-                    # Add checkerboard
-                    if (x // 50 + y // 50) % 2 == 0:
-                        r *= 0.7
-                        g *= 0.7
-                        b *= 0.7
+                    # Sky-like gradient
+                    r = 0.2 + 0.3 * (x / width)  # Slight horizontal variation
+                    g = 0.3 + 0.4 * (1.0 - y / height)  # Darker at bottom
+                    b = 0.5 + 0.3 * (1.0 - y / height)  # Blue sky gradient
                     
                     pixels[y, x] = [r, g, b, 1.0]
             
@@ -253,9 +253,12 @@ class HDRI_OT_create_canvas(Operator):
                     for space in area.spaces:
                         if space.type == 'IMAGE_EDITOR':
                             space.image = canvas_image
-                            space.mode = 'VIEW'
+                            # Keep UV mode to show mesh UV overlay
+                            # space.mode will be set by the sphere when it's created
+                            if hasattr(space, 'overlay'):
+                                space.overlay.show_overlays = True
                             area.tag_redraw()
-                            print(f"Image set in Image Editor at x={area.x}")
+                            print(f"✅ Canvas image set in Image Editor (UV mode ready)")
             
             print(f"Canvas image created: {width}x{height}")
             
