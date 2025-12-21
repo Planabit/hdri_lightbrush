@@ -81,9 +81,15 @@ def get_uv_from_hit_point(sphere, hit_point_world):
     direction = (hit_point_world - sphere_center).normalized()
     
     # Account for sphere rotation (important for rotation sync!)
-    # Transform direction to sphere's local space to cancel out object rotation
-    inv_rot = sphere.matrix_world.to_3x3().inverted()
+    # Use rotation_euler to get ONLY rotation, not scale!
+    # matrix_world.to_3x3() includes scale which breaks UV calculation
+    from mathutils import Matrix
+    rot_matrix = sphere.rotation_euler.to_matrix()
+    inv_rot = rot_matrix.inverted()
     direction_local = inv_rot @ direction
+    
+    # Normalize again after rotation (safety)
+    direction_local = direction_local.normalized()
     
     # EQUIRECTANGULAR PROJECTION using local direction
     import math
