@@ -42,7 +42,7 @@ _visual_update_interval = 0.033  # 30 FPS visual updates
 # ============================================================================
 
 def find_interior_surface(sphere, ray_origin, ray_direction):
-    """Find interior surface (second intersection)"""
+    """Find interior surface (second intersection) - returns EXACT hit point"""
     
     # Transform to object space
     ray_origin_local = sphere.matrix_world.inverted() @ ray_origin
@@ -59,9 +59,48 @@ def find_interior_surface(sphere, ray_origin, ray_direction):
         success2, location2, normal2, face_index2 = sphere.ray_cast(new_origin, ray_direction_local)
         
         if success2:
-            return sphere.matrix_world @ location2, face_index2
+            # Return EXACT hit location in world space (not face center!)
+            hit_world = sphere.matrix_world @ location2
+            return hit_world, face_index2, location2  # Also return local coords
     
-    return None, None
+    return None, None, None
+
+
+def get_uv_from_hit_point(sphere, hit_point_world):
+    """
+    Get UV coordinate from EXACT hit point using spherical projection.
+    
+    This is more accurate than face center method because it uses
+    the actual raycast intersection point.
+    """
+    
+    # Get sphere center in world space
+    sphere_center = sphere.matrix_world.translation
+    
+    # Direction from sphere center to hit point
+    direction = (hit_point_world - sphere_center).normalized()
+    
+    # Account for sphere rotation (important for rotation sync!)
+    # Transform direction to sphere's local space to cancel out object rotation
+    inv_rot = sphere.matrix_world.to_3x3().inverted()
+    direction_local = inv_rot @ direction
+    
+    # EQUIRECTANGULAR PROJECTION using local direction
+    import math
+    
+    # Longitude (U): Full 360° rotation around Z-axis
+    longitude = math.atan2(direction_local.y, direction_local.x)
+    u = 0.5 - (longitude / (2.0 * math.pi))
+    
+    # Latitude (V): -90° (south) to +90° (north)
+    latitude = math.asin(max(-1.0, min(1.0, direction_local.z)))
+    v = 0.5 + (latitude / math.pi)
+    
+    # Clamp to valid range
+    u = max(0.0, min(1.0, u))
+    v = max(0.0, min(1.0, v))
+    
+    return (u, v)
 
 
 def get_uv_from_face_center(sphere, face_index):
@@ -286,12 +325,12 @@ def paint_at_mouse(context, event, is_stroke_start=False, is_stroke_continue=Fal
         ray_origin = view3d_utils.region_2d_to_origin_3d(region, region_3d, mouse_coord)
         ray_direction = view3d_utils.region_2d_to_vector_3d(region, region_3d, mouse_coord)
         
-        # Find interior surface (second intersection)
-        interior_location, face_index = find_interior_surface(_sphere, ray_origin, ray_direction)
+        # Find interior surface (second intersection) - now returns exact hit point
+        interior_location, face_index, local_hit = find_interior_surface(_sphere, ray_origin, ray_direction)
         
         if interior_location and face_index is not None:
-            # Get CALIBRATED UV coordinates
-            uv_coord = get_uv_from_face_center(_sphere, face_index)
+            # Get UV from EXACT hit point (more accurate than face center!)
+            uv_coord = get_uv_from_hit_point(_sphere, interior_location)
             
             if uv_coord:
                 # Get brush settings
@@ -490,8 +529,8 @@ class HDRI_OT_continuous_paint_modal(bpy.types.Operator):
             ray_origin = view3d_utils.region_2d_to_origin_3d(region, region_3d, mouse_coord)
             ray_direction = view3d_utils.region_2d_to_vector_3d(region, region_3d, mouse_coord)
             
-            # Check if ray hits sphere
-            location, face_index = find_interior_surface(sphere, ray_origin, ray_direction)
+            # Check if ray hits sphere (now returns 3 values)
+            location, face_index, _ = find_interior_surface(sphere, ray_origin, ray_direction)
             
             if location is not None:
                 # Ray hits sphere - START painting and consume event
