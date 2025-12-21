@@ -43,23 +43,41 @@ _visual_update_interval = 0.033  # 30 FPS visual updates
 # ============================================================================
 
 def find_interior_surface(sphere, ray_origin, ray_direction):
-    """Find the surface we're looking at from inside the sphere.
-    Since we're inside and looking out, the FIRST intersection is what we see.
+    """Find the FAR (interior) surface we're looking at from inside the sphere.
+    
+    The camera might not be at the exact center, so we need to find the
+    FAR surface, not the near one. We do this by:
+    1. First raycast to find near surface
+    2. Second raycast from just past the near surface to find far surface
     """
     
     # Transform to object space
-    ray_origin_local = sphere.matrix_world.inverted() @ ray_origin
-    ray_direction_local = sphere.matrix_world.inverted().to_3x3() @ ray_direction
+    matrix_inv = sphere.matrix_world.inverted()
+    ray_origin_local = matrix_inv @ ray_origin
+    ray_direction_local = matrix_inv.to_3x3() @ ray_direction
+    ray_direction_local.normalize()
     
-    # First intersection - this is what we see from inside
-    success, location, normal, face_index = sphere.ray_cast(ray_origin_local, ray_direction_local)
+    # First raycast - might hit near surface
+    success1, location1, normal1, face_index1 = sphere.ray_cast(ray_origin_local, ray_direction_local)
     
-    if success:
-        # Return EXACT hit location in world space
-        hit_world = sphere.matrix_world @ location
-        return hit_world, face_index, location
+    if not success1:
+        return None, None, None
     
-    return None, None, None
+    # Try to find a second (far) surface by continuing the ray
+    # Start from just past the first hit
+    offset = 0.001  # Small offset to get past first surface
+    new_origin = location1 + ray_direction_local * offset
+    
+    success2, location2, normal2, face_index2 = sphere.ray_cast(new_origin, ray_direction_local)
+    
+    if success2:
+        # Found far surface - this is what we actually see!
+        hit_world = sphere.matrix_world @ location2
+        return hit_world, face_index2, location2
+    else:
+        # Only one surface found - camera must be inside, use first hit
+        hit_world = sphere.matrix_world @ location1
+        return hit_world, face_index1, location1
 
 
 def get_uv_from_hit_point(sphere, hit_point_world):
@@ -72,6 +90,8 @@ def get_uv_from_hit_point(sphere, hit_point_world):
     EQUIRECTANGULAR PROJECTION:
     - U (horizontal): 0 = left edge, 1 = right edge (wraps around)
     - V (vertical): 0 = bottom (south pole), 1 = top (north pole)
+    
+    NOTE: Material uses -Normal (inverted), so we must invert direction too!
     """
     global _last_stable_u
     
@@ -79,6 +99,8 @@ def get_uv_from_hit_point(sphere, hit_point_world):
     sphere_center = sphere.matrix_world.translation
     
     # Direction from sphere center to hit point
+    # This is the actual direction to the far surface we hit
+    # NO inversion needed - we're using the real hit point now!
     direction = (hit_point_world - sphere_center).normalized()
     
     # Account for sphere rotation (important for rotation sync!)
@@ -103,19 +125,17 @@ def get_uv_from_hit_point(sphere, hit_point_world):
     # asin(z) gives angle from equator: -π/2 (south) to +π/2 (north)
     latitude = math.asin(max(-1.0, min(1.0, direction_local.z)))
     
-    # Convert to V using BLENDER'S formula: 0.5 - (not +)
-    # This matches Environment Texture EQUIRECTANGULAR projection
-    # -π/2 (south/bottom) → 1.0, 0 (equator) → 0.5, +π/2 (north/top) → 0.0
-    v = 0.5 - (latitude / math.pi)
+    # INVERTED formula to match material's -Normal direction
+    # Material uses -Normal, so we need opposite mapping
+    v = 0.5 + (latitude / math.pi)
     
     # Clamp V
     v = max(0.0, min(1.0, v))
     
     # U: Angle around Z axis
     longitude = math.atan2(direction_local.y, direction_local.x)
-    # BLENDER'S EQUIRECTANGULAR formula: 0.5 + (not -)
-    # This matches Environment Texture node projection
-    u = 0.5 + (longitude / (2.0 * math.pi))
+    # INVERTED formula to match material's -Normal direction
+    u = 0.5 - (longitude / (2.0 * math.pi))
     
     # Wrap U to 0-1 range
     if u < 0.0:
@@ -157,6 +177,8 @@ def get_uv_from_face_center(sphere, face_index):
     
     COPIED FROM viewport_paint_operator.py - PROVEN TO WORK!
     Spherical projection with empirically determined correction factors.
+    
+    NOTE: Material uses -Normal, so we invert direction!
     """
     
     mesh = sphere.data
@@ -175,18 +197,18 @@ def get_uv_from_face_center(sphere, face_index):
     sphere_center = sphere.matrix_world.translation
     direction = (face_center_world - sphere_center).normalized()
     
-    # EQUIRECTANGULAR PROJECTION - Blender's formula
+    # EQUIRECTANGULAR PROJECTION - INVERTED to match material's -Normal
     import math
     
     # Longitude (U): Full 360° rotation around Z-axis
-    # BLENDER'S formula: 0.5 + (not -)
+    # INVERTED formula to match material's -Normal direction
     longitude = math.atan2(direction.y, direction.x)
-    u_raw = 0.5 + (longitude / (2.0 * math.pi))
+    u_raw = 0.5 - (longitude / (2.0 * math.pi))
     
     # Latitude (V): -90° (south) to +90° (north)
-    # BLENDER'S formula: 0.5 - (not +)
+    # INVERTED formula to match material's -Normal direction
     latitude = math.asin(max(-1.0, min(1.0, direction.z)))  # Clamp for safety
-    v_raw = 0.5 - (latitude / math.pi)
+    v_raw = 0.5 + (latitude / math.pi)
     
     # Apply empirical corrections (EXACT COPY from viewport_paint_operator.py):
     u = u_raw - 0.008
