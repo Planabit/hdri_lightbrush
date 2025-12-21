@@ -148,9 +148,9 @@ def interpolate_uv(uv_start, uv_end, steps=5):
     return interpolated
 
 
-def paint_at_uv(canvas_image, uv_coord, brush_size, brush_color, brush_strength, is_stroke_start=False):
+def paint_at_uv(canvas_image, uv_coord, brush_size, brush_color, brush_strength, is_stroke_start=False, write_to_canvas=True):
     """
-    FAST paint at UV coordinate
+    FULLY VECTORIZED numpy paint - ultra fast!
     """
     global _pixel_buffer
     
@@ -169,29 +169,40 @@ def paint_at_uv(canvas_image, uv_coord, brush_size, brush_color, brush_strength,
         y_min = max(0, pixel_y - brush_size)
         y_max = min(height, pixel_y + brush_size + 1)
         
-        # Precompute
+        bw = x_max - x_min
+        bh = y_max - y_min
+        if bw <= 0 or bh <= 0:
+            return True
+        
+        # Vectorized distance calculation
+        yy, xx = np.ogrid[y_min-pixel_y:y_max-pixel_y, x_min-pixel_x:x_max-pixel_x]
+        dist_sq = xx*xx + yy*yy
         brush_size_sq = brush_size * brush_size
-        inv_brush = 1.0 / brush_size
+        mask = dist_sq <= brush_size_sq
         
-        # FAST paint loop - no function calls inside
-        for ty in range(y_min, y_max):
-            dy = ty - pixel_y
-            dy_sq = dy * dy
-            row_idx = ty * width * 4
-            for tx in range(x_min, x_max):
-                dx = tx - pixel_x
-                dist_sq = dx*dx + dy_sq
-                if dist_sq <= brush_size_sq:
-                    # Fast falloff without sqrt
-                    falloff = 1.0 - (dist_sq ** 0.5) * inv_brush
-                    alpha = falloff * falloff * brush_strength
-                    idx = row_idx + tx * 4
-                    _pixel_buffer[idx] = _pixel_buffer[idx] * (1.0 - alpha) + brush_color[0] * alpha
-                    _pixel_buffer[idx+1] = _pixel_buffer[idx+1] * (1.0 - alpha) + brush_color[1] * alpha
-                    _pixel_buffer[idx+2] = _pixel_buffer[idx+2] * (1.0 - alpha) + brush_color[2] * alpha
+        if not np.any(mask):
+            return True
         
-        # Write to canvas
-        canvas_image.pixels.foreach_set(_pixel_buffer)
+        # Vectorized alpha calculation
+        dist = np.sqrt(dist_sq)
+        falloff = np.clip(1.0 - dist / brush_size, 0, 1)
+        alpha = (falloff * falloff * brush_strength) * mask
+        
+        # Reshape pixel buffer to 2D for easy indexing
+        pixels_2d = _pixel_buffer.reshape((height, width, 4))
+        
+        # Extract brush region
+        region = pixels_2d[y_min:y_max, x_min:x_max, :3]
+        
+        # Vectorized blend
+        alpha_3d = alpha[:, :, np.newaxis]
+        brush_rgb = np.array(brush_color[:3], dtype=np.float32)
+        region[:] = region * (1.0 - alpha_3d) + brush_rgb * alpha_3d
+        
+        # Only write to canvas when requested
+        if write_to_canvas:
+            canvas_image.pixels.foreach_set(_pixel_buffer)
+        
         return True
         
     except Exception as e:
@@ -286,7 +297,7 @@ def paint_at_mouse(context, event, is_stroke_start=False, is_stroke_continue=Fal
                 # Get brush settings
                 props = context.scene.hdri_studio
                 
-                # Interpolate for smooth lines - MORE steps!
+                # Interpolate for smooth lines
                 uv_coords_to_paint = []
                 
                 if is_stroke_start or _last_paint_uv is None:
@@ -296,16 +307,18 @@ def paint_at_mouse(context, event, is_stroke_start=False, is_stroke_continue=Fal
                     # 8 steps for smooth continuous line
                     uv_coords_to_paint = interpolate_uv(_last_paint_uv, uv_coord, steps=8)
                 
-                # Paint all positions
+                # Paint all positions - only write to canvas ONCE at the end
                 for i, uv in enumerate(uv_coords_to_paint):
                     is_first = (is_stroke_start and i == 0)
+                    is_last = (i == len(uv_coords_to_paint) - 1)
                     paint_at_uv(
                         _canvas_image,
                         uv,
                         props.brush_size,
                         props.brush_color[:3],
                         props.brush_intensity,
-                        is_stroke_start=is_first
+                        is_stroke_start=is_first,
+                        write_to_canvas=is_last  # Only write on last point!
                     )
                     _stroke_paint_count += 1
                 
