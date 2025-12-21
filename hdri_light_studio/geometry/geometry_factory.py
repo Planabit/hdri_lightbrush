@@ -56,8 +56,8 @@ def create_half_sphere(name="Closed_Sphere", radius=10.0, location=(0, 0, 0)):
     # Add subdivision and smoothing for better rounded edge
     bmesh.ops.subdivide_edges(bm, edges=bm.edges, cuts=1, use_grid_fill=True)
     
-    # Flip normals to face inward
-    bmesh.ops.reverse_faces(bm, faces=bm.faces)
+    # DON'T flip normals - the material's Geometry Backfacing node
+    # handles showing interior vs exterior
     
     # Apply smooth shading
     for face in bm.faces:
@@ -74,7 +74,9 @@ def create_half_sphere(name="Closed_Sphere", radius=10.0, location=(0, 0, 0)):
 
 
 def create_sphere(name="Sphere", radius=10.0, location=(0, 0, 0)):
-    """Create a full sphere"""
+    """Create a full sphere for HDRI viewing.
+    The material's Backfacing node determines which side is visible.
+    """
     
     # Create mesh and object
     mesh = bpy.data.meshes.new(name + "_mesh")
@@ -86,11 +88,8 @@ def create_sphere(name="Sphere", radius=10.0, location=(0, 0, 0)):
     # Create UV sphere
     bmesh.ops.create_uvsphere(bm, u_segments=32, v_segments=16, radius=radius)
     
-    # NOTE: We don't create UV mapping here - sphere_project() will do it properly
-    # The bmesh UV is cylindrical, but we'll use bpy.ops.uv.sphere_project() later
-    
-    # Flip normals to face inward
-    bmesh.ops.reverse_faces(bm, faces=bm.faces)
+    # DON'T flip normals - the material's Geometry Backfacing node
+    # handles showing interior vs exterior
     
     # Apply smooth shading
     for face in bm.faces:

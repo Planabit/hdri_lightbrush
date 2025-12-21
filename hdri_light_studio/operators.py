@@ -14,7 +14,9 @@ from .utils import kelvin_to_rgb
 canvas_renderer = None
 
 def update_world_hdri(context):
-    """Update world material with current canvas image"""
+    """Update world material with current canvas image.
+    Uses same EQUIRECTANGULAR projection as sphere material for consistency.
+    """
     try:
         # Get or create world material
         world = context.scene.world
@@ -32,10 +34,12 @@ def update_world_hdri(context):
         # Add Environment Texture node
         env_tex = nodes.new(type='ShaderNodeTexEnvironment')
         env_tex.location = (-300, 300)
+        env_tex.projection = 'EQUIRECTANGULAR'  # Match sphere material!
         
         # Add Background node
         background = nodes.new(type='ShaderNodeBackground')
         background.location = (0, 300)
+        background.inputs['Strength'].default_value = 1.0
         
         # Add World Output node
         world_output = nodes.new(type='ShaderNodeOutputWorld')
@@ -57,7 +61,7 @@ def update_world_hdri(context):
                         space.shading.type = 'MATERIAL'
                         area.tag_redraw()
                         
-        print("World HDRI updated")
+        print("World HDRI updated with EQUIRECTANGULAR projection")
         
     except Exception as e:
         print(f"World HDRI update failed: {e}")

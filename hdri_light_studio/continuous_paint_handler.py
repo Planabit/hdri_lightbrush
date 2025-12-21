@@ -29,6 +29,7 @@ _mouse_handler = None
 _is_painting = False
 _last_mouse_pos = None
 _last_paint_uv = None
+_last_stable_u = 0.5  # For pole stabilization
 _sphere = None
 _canvas_image = None
 _pixel_buffer = None
@@ -42,26 +43,21 @@ _visual_update_interval = 0.033  # 30 FPS visual updates
 # ============================================================================
 
 def find_interior_surface(sphere, ray_origin, ray_direction):
-    """Find interior surface (second intersection) - returns EXACT hit point"""
+    """Find the surface we're looking at from inside the sphere.
+    Since we're inside and looking out, the FIRST intersection is what we see.
+    """
     
     # Transform to object space
     ray_origin_local = sphere.matrix_world.inverted() @ ray_origin
     ray_direction_local = sphere.matrix_world.inverted().to_3x3() @ ray_direction
     
-    # First intersection
-    success1, location1, normal1, face_index1 = sphere.ray_cast(ray_origin_local, ray_direction_local)
+    # First intersection - this is what we see from inside
+    success, location, normal, face_index = sphere.ray_cast(ray_origin_local, ray_direction_local)
     
-    if success1:
-        # Second intersection (interior surface)
-        offset = 0.001
-        new_origin = location1 + ray_direction_local * offset
-        
-        success2, location2, normal2, face_index2 = sphere.ray_cast(new_origin, ray_direction_local)
-        
-        if success2:
-            # Return EXACT hit location in world space (not face center!)
-            hit_world = sphere.matrix_world @ location2
-            return hit_world, face_index2, location2  # Also return local coords
+    if success:
+        # Return EXACT hit location in world space
+        hit_world = sphere.matrix_world @ location
+        return hit_world, face_index, location
     
     return None, None, None
 
@@ -72,7 +68,12 @@ def get_uv_from_hit_point(sphere, hit_point_world):
     
     This is more accurate than face center method because it uses
     the actual raycast intersection point.
+    
+    EQUIRECTANGULAR PROJECTION:
+    - U (horizontal): 0 = left edge, 1 = right edge (wraps around)
+    - V (vertical): 0 = bottom (south pole), 1 = top (north pole)
     """
+    global _last_stable_u
     
     # Get sphere center in world space
     sphere_center = sphere.matrix_world.translation
@@ -82,29 +83,70 @@ def get_uv_from_hit_point(sphere, hit_point_world):
     
     # Account for sphere rotation (important for rotation sync!)
     # Use rotation_euler to get ONLY rotation, not scale!
-    # matrix_world.to_3x3() includes scale which breaks UV calculation
     from mathutils import Matrix
     rot_matrix = sphere.rotation_euler.to_matrix()
     inv_rot = rot_matrix.inverted()
     direction_local = inv_rot @ direction
     
-    # Normalize again after rotation (safety)
-    direction_local = direction_local.normalized()
+    # Normalize again after rotation
+    length = math.sqrt(direction_local.x**2 + direction_local.y**2 + direction_local.z**2)
+    if length > 0.0001:
+        direction_local = direction_local / length
     
-    # EQUIRECTANGULAR PROJECTION using local direction
-    import math
+    # EQUIRECTANGULAR PROJECTION (Standard HDRI projection)
+    # This matches Blender's Environment Texture node with EQUIRECTANGULAR projection
     
-    # Longitude (U): Full 360° rotation around Z-axis
-    longitude = math.atan2(direction_local.y, direction_local.x)
-    u = 0.5 - (longitude / (2.0 * math.pi))
+    # Calculate xy_length for pole detection
+    xy_length = math.sqrt(direction_local.x**2 + direction_local.y**2)
     
-    # Latitude (V): -90° (south) to +90° (north)
+    # Latitude (V): Use asin for proper equirectangular mapping
+    # asin(z) gives angle from equator: -π/2 (south) to +π/2 (north)
     latitude = math.asin(max(-1.0, min(1.0, direction_local.z)))
-    v = 0.5 + (latitude / math.pi)
     
-    # Clamp to valid range
-    u = max(0.0, min(1.0, u))
+    # Convert to V using BLENDER'S formula: 0.5 - (not +)
+    # This matches Environment Texture EQUIRECTANGULAR projection
+    # -π/2 (south/bottom) → 1.0, 0 (equator) → 0.5, +π/2 (north/top) → 0.0
+    v = 0.5 - (latitude / math.pi)
+    
+    # Clamp V
     v = max(0.0, min(1.0, v))
+    
+    # U: Angle around Z axis
+    longitude = math.atan2(direction_local.y, direction_local.x)
+    # BLENDER'S EQUIRECTANGULAR formula: 0.5 + (not -)
+    # This matches Environment Texture node projection
+    u = 0.5 + (longitude / (2.0 * math.pi))
+    
+    # Wrap U to 0-1 range
+    if u < 0.0:
+        u += 1.0
+    elif u > 1.0:
+        u -= 1.0
+    
+    # POLE STABILIZATION: When near poles, U is unreliable
+    # Keep track of last good U and use it when xy_length is small
+    pole_threshold = 0.2  # ~11.5 degrees from pole
+    
+    if xy_length > pole_threshold:
+        # Good U value - save it
+        _last_stable_u = u
+    else:
+        # Near pole - check if U jumped unreasonably
+        u_diff = abs(u - _last_stable_u)
+        # Account for wraparound
+        if u_diff > 0.5:
+            u_diff = 1.0 - u_diff
+        
+        # If U jumped more than 0.1 (36 degrees), it's probably noise
+        if u_diff > 0.1:
+            # Use last stable U instead
+            u = _last_stable_u
+            # DEBUG
+            print(f"🔧 POLE FIX: Using stable U={u:.3f} instead of noisy value | xy_len={xy_length:.3f}")
+    
+    # DEBUG: Log values around equator and southern hemisphere
+    if v < 0.55 and v > 0.2:
+        print(f"📍 UV: ({u:.3f}, {v:.3f}) | z={direction_local.z:.3f}")
     
     return (u, v)
 
@@ -133,16 +175,18 @@ def get_uv_from_face_center(sphere, face_index):
     sphere_center = sphere.matrix_world.translation
     direction = (face_center_world - sphere_center).normalized()
     
-    # EQUIRECTANGULAR PROJECTION (same as viewport_paint_operator.py)
+    # EQUIRECTANGULAR PROJECTION - Blender's formula
     import math
     
     # Longitude (U): Full 360° rotation around Z-axis
+    # BLENDER'S formula: 0.5 + (not -)
     longitude = math.atan2(direction.y, direction.x)
-    u_raw = 0.5 - (longitude / (2.0 * math.pi))
+    u_raw = 0.5 + (longitude / (2.0 * math.pi))
     
     # Latitude (V): -90° (south) to +90° (north)
+    # BLENDER'S formula: 0.5 - (not +)
     latitude = math.asin(max(-1.0, min(1.0, direction.z)))  # Clamp for safety
-    v_raw = 0.5 + (latitude / math.pi)
+    v_raw = 0.5 - (latitude / math.pi)
     
     # Apply empirical corrections (EXACT COPY from viewport_paint_operator.py):
     u = u_raw - 0.008
@@ -175,12 +219,19 @@ def interpolate_uv(uv_start, uv_end, steps=5):
     if not uv_start or not uv_end:
         return [uv_end] if uv_end else []
     
-    # Check for wraparound (crossing UV seam at u=0/u=1)
+    # Check for large jumps - DON'T interpolate if too far apart
     u_diff = abs(uv_end[0] - uv_start[0])
+    v_diff = abs(uv_end[1] - uv_start[1])
     
-    # If U difference is > 0.5, we're crossing the seam - DON'T interpolate
-    if u_diff > 0.5:
-        # Just return end point, no interpolation across seam
+    # If U difference is > 0.3, we're likely crossing the seam or at a pole
+    if u_diff > 0.3:
+        print(f"⚠️ U SKIP: U jumped {u_diff:.3f} | start={uv_start} end={uv_end}")
+        return [uv_end]
+    
+    # If V difference is > 0.05, mouse moved too fast - don't draw long lines
+    # This prevents the "brush stretching" effect
+    if v_diff > 0.05:
+        print(f"⚠️ V SKIP: V jumped {v_diff:.3f} | start=({uv_start[0]:.3f}, {uv_start[1]:.3f}) end=({uv_end[0]:.3f}, {uv_end[1]:.3f})")
         return [uv_end]
     
     interpolated = []
@@ -288,6 +339,7 @@ def mouse_event_handler(context, event):
     """Handle mouse events for continuous painting with smooth brush strokes"""
     global _is_painting, _last_mouse_pos, _sphere, _canvas_image
     global _paint_throttle_counter, _paint_throttle_interval
+    global _last_stable_u
     
     # Only in 3D viewport
     if context.area.type != 'VIEW_3D':
@@ -300,6 +352,7 @@ def mouse_event_handler(context, event):
             _is_painting = True
             _last_mouse_pos = (event.mouse_region_x, event.mouse_region_y)
             _paint_throttle_counter = 0
+            _last_stable_u = 0.5  # Reset for new stroke
             paint_at_mouse(context, event, is_stroke_start=True)
             
         elif event.value == 'RELEASE':

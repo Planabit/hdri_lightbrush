@@ -129,8 +129,10 @@ def create_sphere_handler():
 
 
 
-def load_dome_as_sphere(name="HDRI_Preview_Sphere", sphere_type='HALF_SPHERE'):
-    """Create sphere using geometry factory based on selected type"""
+def load_dome_as_sphere(name="HDRI_Sphere", sphere_type='SPHERE'):
+    """Create sphere using geometry factory based on selected type.
+    Uses our own sphere geometry with proper normals for interior viewing.
+    """
     
     # Use geometry factory to create the selected geometry type
     obj = create_geometry(sphere_type, name, radius=5.0, location=(0, 0, 0))
@@ -138,6 +140,7 @@ def load_dome_as_sphere(name="HDRI_Preview_Sphere", sphere_type='HALF_SPHERE'):
     if obj:
         # Link to current collection
         bpy.context.collection.objects.link(obj)
+        print(f"✅ Created {sphere_type} geometry: '{name}'")
         return obj
     
     return None
@@ -146,33 +149,56 @@ def load_dome_as_sphere(name="HDRI_Preview_Sphere", sphere_type='HALF_SPHERE'):
 
 
 
+def set_material_to_equirectangular(material):
+    """Set all Environment Texture nodes in material to EQUIRECTANGULAR projection"""
+    if not material or not material.use_nodes:
+        return
+    
+    def process_node_tree(node_tree, depth=0):
+        """Recursively process node tree and nested node groups"""
+        for node in node_tree.nodes:
+            if node.type == 'TEX_ENVIRONMENT':
+                if node.projection != 'EQUIRECTANGULAR':
+                    print(f"  {'  '*depth}Setting {node.name} projection to EQUIRECTANGULAR (was {node.projection})")
+                    node.projection = 'EQUIRECTANGULAR'
+            # Process nested node groups
+            if hasattr(node, 'node_tree') and node.node_tree:
+                process_node_tree(node.node_tree, depth + 1)
+    
+    print(f"Setting material '{material.name}' to EQUIRECTANGULAR projection...")
+    process_node_tree(material.node_tree)
+
+
 def setup_sphere_material(obj, canvas_image=None):
-    """Setup material for sphere based on sample dome implementation"""
+    """Setup transparent HDRI material for sphere interior viewing.
+    Creates our own material with proper transparency settings.
+    """
     
     # Clear existing materials
     obj.data.materials.clear()
     
-    # Load the exact dome material from sample
-    dome_material = load_sample_dome_material()
+    # Create our transparent HDRI material
+    mat = create_painting_sphere_material(obj, canvas_image)
     
-    if dome_material:
-        # Assign material to sphere
-        obj.data.materials.append(dome_material)
-        
-        # Assign sphere object to material coordinates (like sample)
-        assign_sphere_to_material_coordinates(obj, dome_material)
-        
-        # FIRST: Assign default white texture to ALL missing texture nodes
-        assign_default_texture_to_dome_material(dome_material)
-        
-        # THEN: Assign canvas image to material if available (IMPROVED - ALL ENV TEXTURE NODES)
-        if canvas_image:
-            assign_image_to_sphere_material(dome_material, canvas_image)
-        
-        return dome_material
-    else:
-        # Fallback to simple material if sample loading fails
-        return create_painting_sphere_material(obj, canvas_image)
+    return mat
+
+
+def update_material_object_reference(material, sphere_obj):
+    """Update TEX_COORD nodes in material to reference the sphere object"""
+    if not material or not material.use_nodes:
+        return
+    
+    def update_in_node_tree(node_tree):
+        for node in node_tree.nodes:
+            if node.type == 'TEX_COORD':
+                # Set the sphere as the reference object
+                node.object = sphere_obj
+                print(f"  Updated TEX_COORD '{node.name}' object reference to '{sphere_obj.name}'")
+            # Recursively update in node groups
+            if hasattr(node, 'node_tree') and node.node_tree:
+                update_in_node_tree(node.node_tree)
+    
+    update_in_node_tree(material.node_tree)
 
 
 def load_sample_dome_material():
@@ -336,66 +362,67 @@ def assign_default_texture_to_dome_material(material):
 
 
 def create_painting_sphere_material(obj, canvas_image=None):
-    """Create clean material optimized for 3D viewport painting on sphere interior"""
+    """Create transparent EQUIRECTANGULAR material for viewing HDRI from inside sphere.
     
-    # Create new material
+    Based on sample dome material analysis:
+    - Uses Blend Method: HASHED for transparency
+    - Uses Geometry node Backfacing to show only interior
+    - Mix between Transparent BSDF (exterior) and Emission (interior)
+    """
+    
+    # Create new material with transparency settings like sample dome
     mat = bpy.data.materials.new(name=f"{obj.name}_Material")
     mat.use_nodes = True
-    mat.use_backface_culling = False  # Important for seeing interior
-    mat.blend_method = 'BLEND'  # Enable alpha blending
-    mat.show_transparent_back = False  # Only show front faces as transparent
+    mat.use_backface_culling = False
+    mat.blend_method = 'HASHED'  # KEY: This enables transparency!
+    mat.shadow_method = 'NONE'
+    mat.show_transparent_back = True
     obj.data.materials.append(mat)
     
     # Clear default nodes
     nodes = mat.node_tree.nodes
     nodes.clear()
+    links = mat.node_tree.links
     
-    # Create nodes for see-through sphere (ORIGINAL DOME FUNCTIONS VERSION)
+    # Create nodes
     output = nodes.new(type='ShaderNodeOutputMaterial')
     mix_shader = nodes.new(type='ShaderNodeMixShader')
     transparent = nodes.new(type='ShaderNodeBsdfTransparent')
     emission = nodes.new(type='ShaderNodeEmission')
-    image_texture = nodes.new(type='ShaderNodeTexImage')
+    env_texture = nodes.new(type='ShaderNodeTexEnvironment')
+    tex_coord = nodes.new(type='ShaderNodeTexCoord')
     geometry = nodes.new(type='ShaderNodeNewGeometry')
     
-    # Set node locations
-    output.location = (400, 0)
-    mix_shader.location = (200, 0)
-    transparent.location = (0, 100)
-    emission.location = (0, -100)
-    image_texture.location = (-200, -100)
-    geometry.location = (-200, 100)
+    # Position nodes
+    output.location = (600, 0)
+    mix_shader.location = (400, 0)
+    transparent.location = (200, 150)
+    emission.location = (200, -50)
+    env_texture.location = (0, -50)
+    tex_coord.location = (-200, -50)
+    geometry.location = (200, 300)
     
-    # Connect nodes - front faces transparent, back faces show HDRI (ORIGINAL CONNECTIONS)
-    links = mat.node_tree.links
+    # Connect nodes:
+    # Geometry.Backfacing -> Mix.Fac (1=backface=interior, 0=frontface=exterior)
+    # Transparent -> Mix.Shader1 (exterior - invisible)
+    # Emission -> Mix.Shader2 (interior - shows HDRI)
+    links.new(geometry.outputs['Backfacing'], mix_shader.inputs['Fac'])
+    links.new(transparent.outputs['BSDF'], mix_shader.inputs[1])  # Shader 1
+    links.new(emission.outputs['Emission'], mix_shader.inputs[2])  # Shader 2
     links.new(mix_shader.outputs['Shader'], output.inputs['Surface'])
-    links.new(emission.outputs['Emission'], mix_shader.inputs[1])  # Front faces = HDRI  
-    links.new(transparent.outputs['BSDF'], mix_shader.inputs[2])  # Back faces = transparent
-    links.new(image_texture.outputs['Color'], emission.inputs['Color'])
-    links.new(geometry.outputs['Backfacing'], mix_shader.inputs[0])  # Mix factor
     
-    # Set emission strength for proper HDRI brightness
-    emission.inputs['Strength'].default_value = 2.0
+    # Environment texture chain
+    links.new(tex_coord.outputs['Generated'], env_texture.inputs['Vector'])
+    links.new(env_texture.outputs['Color'], emission.inputs['Color'])
     
-    # Set canvas image if available
+    # Configure nodes
+    env_texture.projection = 'EQUIRECTANGULAR'
+    emission.inputs['Strength'].default_value = 1.0
+    
     if canvas_image:
-        image_texture.image = canvas_image
-        # Set proper color space for HDRI
-        if hasattr(canvas_image, 'colorspace_settings'):
-            canvas_image.colorspace_settings.name = 'Linear Rec.709'
-    else:
-        # Create a default white texture to avoid missing texture warnings
-        if "HDRI_Default_White" not in bpy.data.images:
-            white_image = bpy.data.images.new("HDRI_Default_White", width=512, height=256)
-            # Fill with white
-            pixels = [1.0] * (512 * 256 * 4)  # RGBA white
-            white_image.pixels[:] = pixels
-            white_image.colorspace_settings.name = 'Linear Rec.709'
-        else:
-            white_image = bpy.data.images["HDRI_Default_White"]
-        
-        image_texture.image = white_image
+        env_texture.image = canvas_image
     
+    print(f"✅ Created transparent HDRI material with HASHED blend method")
     return mat
 
 
