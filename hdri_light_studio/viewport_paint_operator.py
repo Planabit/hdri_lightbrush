@@ -1,11 +1,10 @@
 """
 HDRI Light Studio - 3D Viewport Paint Operator
 
-This module provides direct 3D painting on the interior surface of spheres/spheres.
+This module provides direct 3D painting on the interior surface of spheres.
 Key features:
 - SECOND INTERSECTION: Finds interior surface by using second ray hit
 - SPHERICAL UV: Converts 3D position to spherical coordinates for accurate UV mapping
-- DEBUG TRACKING: Integrates with debug_paint_tracker for UV validation
 """
 
 import bpy
@@ -15,14 +14,6 @@ from mathutils import Vector
 from bpy_extras import view3d_utils
 import gpu
 from gpu_extras.batch import batch_for_shader
-
-# Import debug tracker for UV validation
-try:
-    from . import debug_paint_tracker
-    DEBUG_AVAILABLE = True
-except ImportError:
-    DEBUG_AVAILABLE = False
-    print("Debug paint tracker not available")
 
 
 class HDRI_OT_viewport_paint(bpy.types.Operator):
@@ -249,10 +240,6 @@ class HDRI_OT_viewport_paint(bpy.types.Operator):
         pixel_y = int(uv_coord[1] * image_height)  # Direct, same as markers
         
         print(f"Painting at pixel: ({pixel_x}, {pixel_y}) on {image_width}x{image_height} image")
-        
-        # Record click for debug tracking if enabled
-        if DEBUG_AVAILABLE:
-            debug_paint_tracker.record_paint_click(uv_coord, (pixel_x, pixel_y))
         
         # Apply paint using direct pixel manipulation
         brush = bpy.context.tool_settings.image_paint.brush

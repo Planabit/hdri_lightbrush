@@ -21,13 +21,10 @@ from . import utils
 from . import simple_paint
 from . import world_properties
 from . import world_operators
-# world_ui removed - controls integrated into main UI step 3
 from . import hdri_save
-from . import sphere_tools  # Sphere preview tools
-from . import viewport_paint_operator  # Working 3D painting with second intersection
-# debug_paint_tracker removed - UV debug panel removed from UI
-from . import continuous_paint_handler  # RESTORED: This paints to CORRECT location!
-# from . import paint_on_click  # DISABLED - wrong location
+from . import sphere_tools
+from . import viewport_paint_operator
+from . import continuous_paint_handler
 
 # Module registration list
 modules = [
@@ -40,13 +37,10 @@ modules = [
     simple_paint,
     world_properties,
     world_operators,
-    # world_ui,  # Removed - integrated into main UI
     hdri_save,
     sphere_tools,
     viewport_paint_operator,
-    # debug_paint_tracker,  # Removed - UV debug no longer in UI
-    continuous_paint_handler,  # RESTORED: Correct location painting!
-    # paint_on_click,  # DISABLED
+    continuous_paint_handler,
 ]
 
 def register():
