@@ -286,11 +286,11 @@ class HDRI_OT_clear_canvas(Operator):
             width = canvas_image.size[0]
             height = canvas_image.size[1]
             
-            # Create white pixels (RGBA)
-            white_pixels = [1.0, 1.0, 1.0, 1.0] * (width * height)
+            # Create BLACK pixels (RGBA) - black background for HDRI
+            black_pixels = [0.0, 0.0, 0.0, 1.0] * (width * height)
             
-            # Clear canvas to white
-            canvas_image.pixels[:] = white_pixels
+            # Clear canvas to black
+            canvas_image.pixels[:] = black_pixels
             canvas_image.update()
             
             # Update world HDRI if function exists
@@ -307,7 +307,7 @@ class HDRI_OT_clear_canvas(Operator):
             for area in context.screen.areas:
                 area.tag_redraw()
                     
-            self.report({'INFO'}, "Canvas cleared to white")
+            self.report({'INFO'}, "Canvas cleared to black")
             return {'FINISHED'}
             
         except Exception as e:

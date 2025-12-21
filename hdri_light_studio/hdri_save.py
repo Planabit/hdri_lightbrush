@@ -38,14 +38,26 @@ class HDRI_OT_load_canvas(Operator, ImportHelper):
             # Rename loaded image to HDRI_Canvas
             loaded_image.name = "HDRI_Canvas"
             
+            # IMPORTANT: Set float buffer for proper HDRI handling
+            # This prevents magenta/pink color issues
+            if not loaded_image.is_float:
+                loaded_image.use_half_precision = False
+            
             # Ensure proper colorspace for HDRI work
-            try:
-                loaded_image.colorspace_settings.name = 'Linear Rec.709'
-            except:
+            # Try multiple colorspace names (different Blender versions use different names)
+            colorspace_options = ['Linear Rec.709', 'Linear', 'Linear CIE-XYZ E', 'Raw', 'Non-Color', 'sRGB']
+            colorspace_set = False
+            for cs_name in colorspace_options:
                 try:
-                    loaded_image.colorspace_settings.name = 'sRGB'
+                    loaded_image.colorspace_settings.name = cs_name
+                    colorspace_set = True
+                    print(f"Set colorspace to: {cs_name}")
+                    break
                 except:
-                    pass
+                    continue
+            
+            if not colorspace_set:
+                print("Warning: Could not set linear colorspace, using default")
             
             # Mark canvas as active
             props = context.scene.hdri_studio
@@ -124,14 +136,109 @@ class HDRI_OT_load_canvas(Operator, ImportHelper):
                         settings.brush = brush
                         print("Created HDRI brush for loaded image")
             
+            # UPDATE SPHERE MATERIAL with loaded image!
+            self.update_sphere_with_image(context, loaded_image)
+            
+            # UPDATE WORLD with loaded image if world is set up!
+            self.update_world_with_image(context, loaded_image)
+            
             filename = os.path.basename(self.filepath)
             self.report({'INFO'}, f"HDRI loaded: {filename} - Ready for editing!")
             
             return {'FINISHED'}
             
         except Exception as e:
+            import traceback
+            traceback.print_exc()
             self.report({'ERROR'}, f"Load failed: {e}")
             return {'CANCELLED'}
+    
+    def update_sphere_with_image(self, context, image):
+        """Update preview sphere material with loaded image"""
+        try:
+            # Find preview sphere
+            sphere = bpy.data.objects.get("HDRI_Preview_Sphere")
+            if not sphere:
+                print("No preview sphere found - will use image when sphere is created")
+                return
+            
+            # Get sphere material
+            if not sphere.active_material:
+                print("Sphere has no material")
+                return
+            
+            material = sphere.active_material
+            if not material.use_nodes:
+                print("Sphere material doesn't use nodes")
+                return
+            
+            # Find and update ALL image/environment texture nodes
+            def update_textures_in_tree(node_tree, depth=0):
+                if not node_tree or depth > 5:
+                    return 0
+                
+                count = 0
+                for node in node_tree.nodes:
+                    # Update Environment Texture nodes
+                    if node.type == 'TEX_ENVIRONMENT':
+                        node.image = image
+                        count += 1
+                        print(f"Updated TEX_ENVIRONMENT: {node.name}")
+                    # Update Image Texture nodes
+                    elif node.type == 'TEX_IMAGE':
+                        node.image = image
+                        count += 1
+                        print(f"Updated TEX_IMAGE: {node.name}")
+                    # Recurse into node groups
+                    elif hasattr(node, 'node_tree') and node.node_tree:
+                        count += update_textures_in_tree(node.node_tree, depth + 1)
+                
+                return count
+            
+            updated = update_textures_in_tree(material.node_tree)
+            print(f"Updated {updated} texture nodes in sphere material")
+            
+            # Force material update
+            material.update_tag()
+            
+            # Force viewport refresh
+            for area in context.screen.areas:
+                area.tag_redraw()
+                
+        except Exception as e:
+            print(f"Error updating sphere: {e}")
+    
+    def update_world_with_image(self, context, image):
+        """Update world environment texture with loaded image"""
+        try:
+            world = context.scene.world
+            if not world or not world.use_nodes:
+                print("No world or world doesn't use nodes - skip world update")
+                return
+            
+            # Find Environment Texture node in world
+            env_tex = None
+            for node in world.node_tree.nodes:
+                if node.type == 'TEX_ENVIRONMENT':
+                    env_tex = node
+                    break
+            
+            if env_tex:
+                env_tex.image = image
+                print(f"Updated world environment texture with: {image.name}")
+                
+                # Force world update
+                world.node_tree.update_tag()
+                
+                # Refresh viewports
+                for area in context.screen.areas:
+                    if area.type == 'VIEW_3D':
+                        area.tag_redraw()
+            else:
+                print("No environment texture node found in world")
+                
+        except Exception as e:
+            print(f"Error updating world: {e}")
 
 class HDRI_OT_save_canvas(Operator, ExportHelper):
     """Save HDRI canvas to file"""
@@ -209,8 +316,10 @@ class HDRI_OT_save_canvas(Operator, ExportHelper):
                 if not self.filepath.lower().endswith(('.jpg', '.jpeg')):
                     self.filepath = os.path.splitext(self.filepath)[0] + '.jpg'
             
-            # Save the image
-            canvas_image.save_render(filepath=self.filepath)
+            # Save the image - use filepath_raw + save() instead of save_render()
+            # save_render causes issues with the canvas data
+            canvas_image.filepath_raw = self.filepath
+            canvas_image.save()
             
             # Restore original settings
             canvas_image.file_format = original_format
@@ -300,8 +409,10 @@ class HDRI_OT_quick_save_canvas(Operator):
                 if not filepath.endswith('.exr'):
                     filepath = os.path.splitext(filepath)[0] + '.exr'
             
-            # Save the image
-            canvas_image.save_render(filepath=filepath)
+            # Save the image - use filepath_raw + save() instead of save_render()
+            # save_render causes issues with the canvas data
+            canvas_image.filepath_raw = filepath
+            canvas_image.save()
             
             # Update the image's filepath to track where it was saved
             try:

@@ -89,15 +89,13 @@ class HDRI_PT_main_panel(Panel):
                 row.scale_y = 1.5
                 row.operator("hdri_studio.sphere_add", text="Add Sphere", icon='SPHERE')
         else:
-            # Sphere exists - show paint controls
+            # Sphere exists - painting is automatic!
             row = step2_box.row()
             row.label(text=f"Type: {sphere_props.sphere_type.replace('_', ' ').title()}")
             
-            # 3D Paint controls
-            paint_row = step2_box.row(align=True)
-            paint_row.scale_y = 1.4
-            paint_row.operator("hdri_studio.continuous_paint_enable", text="Paint", icon='BRUSH_DATA')
-            paint_row.operator("hdri_studio.continuous_paint_disable", text="Stop", icon='CANCEL')
+            # Info about automatic painting
+            row = step2_box.row()
+            row.label(text="Click & drag on sphere to paint", icon='INFO')
             
             # Brush settings
             brush_box = step2_box.box()

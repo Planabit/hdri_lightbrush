@@ -313,6 +313,9 @@ def paint_at_mouse(context, event, is_stroke_start=False, is_stroke_continue=Fal
     """Paint at current mouse position with SMOOTH interpolation for continuous brush feel"""
     global _sphere, _canvas_image, _last_paint_uv, _stroke_paint_count, _last_visual_update
     
+    # ALWAYS refresh canvas reference - important when loading new HDRIs!
+    _canvas_image = bpy.data.images.get("HDRI_Canvas")
+    
     if not _sphere or not _canvas_image:
         return
     
