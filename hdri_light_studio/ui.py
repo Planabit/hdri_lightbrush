@@ -99,9 +99,18 @@ class HDRI_PT_main_panel(Panel):
             paint_row.operator("hdri_studio.continuous_paint_enable", text="Paint", icon='BRUSH_DATA')
             paint_row.operator("hdri_studio.continuous_paint_disable", text="Stop", icon='CANCEL')
             
+            # Brush settings
+            brush_box = step2_box.box()
+            brush_box.label(text="Brush:", icon='BRUSH_DATA')
+            row = brush_box.row()
+            row.prop(props, "brush_color", text="")
+            row.prop(props, "brush_size", text="Size")
+            row = brush_box.row()
+            row.prop(props, "brush_intensity", text="Intensity", slider=True)
+            
             # Scale slider
             row = step2_box.row()
-            row.prop(sphere_props, "sphere_scale", text="Scale", slider=True)
+            row.prop(sphere_props, "sphere_scale", text="Sphere Scale", slider=True)
             
             # Remove sphere
             row = step2_box.row()

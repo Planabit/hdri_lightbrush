@@ -358,6 +358,11 @@ def create_painting_sphere_material(obj, canvas_image=None):
     image_texture = nodes.new(type='ShaderNodeTexImage')
     geometry = nodes.new(type='ShaderNodeNewGeometry')
     
+    # Add Mapping and TexCoord nodes for rotation control (SYNC with world)
+    tex_coord = nodes.new(type='ShaderNodeTexCoord')
+    mapping = nodes.new(type='ShaderNodeMapping')
+    mapping.name = "HDRI_Mapping"  # Named for easy access when syncing rotation
+    
     # Set node locations
     output.location = (400, 0)
     mix_shader.location = (200, 0)
@@ -365,6 +370,8 @@ def create_painting_sphere_material(obj, canvas_image=None):
     emission.location = (0, -100)
     image_texture.location = (-200, -100)
     geometry.location = (-200, 100)
+    tex_coord.location = (-600, -100)
+    mapping.location = (-400, -100)
     
     # Connect nodes - front faces transparent, back faces show HDRI (ORIGINAL CONNECTIONS)
     links = mat.node_tree.links
@@ -373,6 +380,10 @@ def create_painting_sphere_material(obj, canvas_image=None):
     links.new(transparent.outputs['BSDF'], mix_shader.inputs[2])  # Back faces = transparent
     links.new(image_texture.outputs['Color'], emission.inputs['Color'])
     links.new(geometry.outputs['Backfacing'], mix_shader.inputs[0])  # Mix factor
+    
+    # Connect mapping nodes for rotation control
+    links.new(tex_coord.outputs['Generated'], mapping.inputs['Vector'])
+    links.new(mapping.outputs['Vector'], image_texture.inputs['Vector'])
     
     # Set emission strength for proper HDRI brightness
     emission.inputs['Strength'].default_value = 2.0

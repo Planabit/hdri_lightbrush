@@ -8,13 +8,37 @@ from bpy.props import FloatProperty, BoolProperty
 from bpy.types import PropertyGroup
 
 def update_world_background(self, context):
-    """Update callback for world background properties"""
+    """Update callback for world background properties - ALSO SYNCS SPHERE"""
     if self.auto_update and context.scene.world:
         # Call update operator
         try:
             bpy.ops.hdri_studio.update_world_background()
         except:
             pass  # Operator might not be available during registration
+    
+    # SYNC sphere material rotation with world rotation
+    sync_sphere_rotation(self.background_rotation)
+
+def sync_sphere_rotation(rotation_value):
+    """Sync sphere rotation with world rotation by rotating the object itself"""
+    import math
+    
+    # Find preview sphere
+    sphere = bpy.data.objects.get("HDRI_Preview_Sphere")
+    if not sphere:
+        print("⚠️ Sphere not found for rotation sync")
+        return
+    
+    # SOLUTION: Rotate the sphere OBJECT itself on Z axis
+    # This is simpler and works regardless of material type
+    # Negate the rotation because we're inside the sphere looking out
+    sphere.rotation_euler[2] = -rotation_value
+    
+    print(f"🔄 Sphere object rotated to {math.degrees(-rotation_value):.1f}°")
+    
+    # Force viewport update
+    if bpy.context.view_layer:
+        bpy.context.view_layer.update()
 
 class HDRIStudioWorldProperties(PropertyGroup):
     """World background settings for HDRI Studio"""
