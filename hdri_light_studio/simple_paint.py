@@ -142,7 +142,7 @@ class HDRI_OT_paint_brush_stroke(Operator):
                 color = props.brush_color[:3]
             
             # Paint at center
-            self.paint_at_pixel(canvas_image, center_x, center_y, props.brush_size, color, props.brush_intensity)
+            self.paint_at_pixel(canvas_image, center_x, center_y, props.brush_radius, color, props.brush_intensity)
             
             # Update world
             from .operators import update_world_hdri
@@ -171,7 +171,9 @@ class HDRI_OT_paint_brush_stroke(Operator):
                         distance = (dx*dx + dy*dy) ** 0.5
                         if distance <= radius:
                             falloff = max(0, 1.0 - (distance / radius)) if radius > 0 else 1.0
-                            alpha = intensity * falloff
+                            # Square the falloff for softer blend (matches 3D painting)
+                            falloff_squared = falloff * falloff
+                            alpha = intensity * falloff_squared
                             
                             idx = (py * width + px) * 4
                             if idx + 3 < len(pixels):

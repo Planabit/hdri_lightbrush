@@ -1,4 +1,4 @@
-﻿bl_info = {
+bl_info = {
     "name": "HDRI Light Studio",
     "author": "HDRI Light Studio Team",
     "version": (1, 0, 0),

@@ -97,14 +97,14 @@ class HDRI_PT_main_panel(Panel):
             row = step2_box.row()
             row.label(text="Click & drag on sphere to paint", icon='INFO')
             
-            # Brush settings
-            brush_box = step2_box.box()
-            brush_box.label(text="Brush:", icon='BRUSH_DATA')
-            row = brush_box.row()
-            row.prop(props, "brush_color", text="")
-            row.prop(props, "brush_size", text="Size")
-            row = brush_box.row()
-            row.prop(props, "brush_intensity", text="Intensity", slider=True)
+            # Info about brush settings
+            info_box = step2_box.box()
+            info_box.label(text="Configure brush in Image Editor:", icon='BRUSH_DATA')
+            col = info_box.column(align=True)
+            col.label(text="• Radius: Brush size")
+            col.label(text="• Strength: Paint intensity")
+            col.label(text="• Hardness: Edge softness")
+            col.label(text="• Color: Paint color")
             
             # Scale slider
             row = step2_box.row()

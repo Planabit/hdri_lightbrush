@@ -10,6 +10,7 @@ from bpy.props import (
 )
 from bpy.types import PropertyGroup
 
+
 class HDRIStudioProperties(PropertyGroup):
     """Main property group for HDRI Studio settings"""
     
@@ -42,34 +43,7 @@ class HDRIStudioProperties(PropertyGroup):
         default='PAINT'
     )
     
-    # Paint tool properties
-    brush_size: IntProperty(
-        name="Brush Size",
-        description="Size of the paint brush",
-        default=50,
-        min=1,
-        max=200
-    )
-    
-    brush_intensity: FloatProperty(
-        name="Intensity", 
-        description="Paint intensity/opacity",
-        default=1.0,
-        min=0.0,
-        max=2.0
-    )
-    
-    brush_color: FloatVectorProperty(
-        name="Brush Color",
-        description="RGB color for painting",
-        subtype='COLOR',
-        default=(1.0, 1.0, 1.0),
-        min=0.0,
-        max=1.0,
-        size=3
-    )
-    
-    # Color temperature properties
+    # Color temperature properties (optional alternative to brush color)
     use_temperature: BoolProperty(
         name="Use Temperature",
         description="Use color temperature instead of RGB",

@@ -22,6 +22,27 @@ import time  # For batch update timing
 import numpy as np  # FAST pixel operations!
 
 
+# ============================================================================
+# COLOR CONVERSION
+# ============================================================================
+
+def srgb_to_linear(color):
+    """Convert sRGB color to Linear color space.
+    
+    Blender's COLOR properties are in sRGB gamma-corrected space,
+    but HDRI images use Linear Rec.709 color space.
+    This conversion is essential for accurate color matching between
+    2D painting (which Blender handles automatically) and 3D painting.
+    """
+    linear = []
+    for component in color[:3]:  # Only RGB, not alpha
+        if component <= 0.04045:
+            linear.append(component / 12.92)
+        else:
+            linear.append(((component + 0.055) / 1.055) ** 2.4)
+    return linear
+
+
 # Global state
 _paint_handler_active = False
 _draw_handler = None
@@ -36,6 +57,12 @@ _pixel_buffer = None
 _stroke_paint_count = 0
 _last_visual_update = 0
 _visual_update_interval = 0.033  # 30 FPS visual updates
+
+# Cursor drawing cache (to reduce lag)
+_last_cursor_pos = None
+_last_brush_radius = None
+_cursor_batch = None
+_cursor_shader = None
 
 
 # ============================================================================
@@ -266,9 +293,12 @@ def interpolate_uv(uv_start, uv_end, steps=5):
     return interpolated
 
 
-def paint_at_uv(canvas_image, uv_coord, brush_size, brush_color, brush_strength, is_stroke_start=False, write_to_canvas=True):
+def paint_at_uv(canvas_image, uv_coord, brush_size, brush_color, brush_strength, brush_hardness, is_stroke_start=False, write_to_canvas=True):
     """
-    FULLY VECTORIZED numpy paint - ultra fast!
+    FULLY VECTORIZED numpy paint with Blender-style falloff curve.
+    
+    Args:
+        brush_hardness: 0.0 (soft/smooth falloff) to 1.0 (hard edge)
     """
     global _pixel_buffer
     
@@ -301,10 +331,33 @@ def paint_at_uv(canvas_image, uv_coord, brush_size, brush_color, brush_strength,
         if not np.any(mask):
             return True
         
-        # Vectorized alpha calculation
+        # Vectorized alpha calculation with Blender-style falloff
         dist = np.sqrt(dist_sq)
-        falloff = np.clip(1.0 - dist / brush_size, 0, 1)
-        alpha = (falloff * falloff * brush_strength) * mask
+        
+        # Blender falloff curve based on hardness:
+        # hardness = 0.0 -> smooth falloff (soft brush)
+        # hardness = 1.0 -> no falloff (hard brush)
+        if brush_hardness >= 0.99:  # Hard brush (no falloff)
+            falloff = 1.0
+        else:
+            # Normalized distance (0 at center, 1 at edge)
+            normalized_dist = np.clip(dist / brush_size, 0, 1)
+            
+            # Blender's falloff: smooth curve affected by hardness
+            # Higher hardness = steeper falloff at edges
+            # Formula approximates Blender's curve behavior
+            if brush_hardness > 0.5:
+                # Sharp falloff (preserve edge)
+                power = 1.0 + (brush_hardness - 0.5) * 4.0  # 1.0 to 3.0
+                falloff = 1.0 - np.power(normalized_dist, power)
+            else:
+                # Smooth falloff (soft brush)
+                power = 0.4 + brush_hardness  # 0.4 to 0.9
+                falloff = 1.0 - np.power(normalized_dist, power)
+            
+            falloff = np.clip(falloff, 0, 1)
+        
+        alpha = (falloff * brush_strength) * mask
         
         # Reshape pixel buffer to 2D for easy indexing
         pixels_2d = _pixel_buffer.reshape((height, width, 4))
@@ -314,8 +367,9 @@ def paint_at_uv(canvas_image, uv_coord, brush_size, brush_color, brush_strength,
         
         # Vectorized blend
         alpha_3d = alpha[:, :, np.newaxis]
-        brush_rgb = np.array(brush_color[:3], dtype=np.float32)
-        region[:] = region * (1.0 - alpha_3d) + brush_rgb * alpha_3d
+        # Convert brush color from sRGB to Linear to match canvas color space
+        brush_rgb_linear = np.array(srgb_to_linear(brush_color), dtype=np.float32)
+        region[:] = region * (1.0 - alpha_3d) + brush_rgb_linear * alpha_3d
         
         # Only write to canvas when requested
         if write_to_canvas:
@@ -362,6 +416,9 @@ def mouse_event_handler(context, event):
     global _is_painting, _last_mouse_pos, _sphere, _canvas_image
     global _paint_throttle_counter, _paint_throttle_interval
     global _last_stable_u
+    
+    # Update mouse position for cursor drawing
+    _last_mouse_pos = (event.mouse_region_x, event.mouse_region_y)
     
     # Only in 3D viewport
     if context.area.type != 'VIEW_3D':
@@ -417,31 +474,67 @@ def paint_at_mouse(context, event, is_stroke_start=False, is_stroke_continue=Fal
             uv_coord = get_uv_from_hit_point(_sphere, interior_location)
             
             if uv_coord:
-                # Get brush settings
-                props = context.scene.hdri_studio
+                # Get Blender brush directly from tool_settings (NOT from bpy.data!)
+                try:
+                    # Get the LIVE brush reference from scene tool_settings
+                    ts = bpy.context.scene.tool_settings
+                    ip = ts.image_paint
+                    brush = ip.brush
+                    
+                    if not brush:
+                        print("❌ No active Image Paint brush!")
+                        return
+                    
+                    # Check for unified paint settings (size)
+                    ups = ts.unified_paint_settings
+                    if ups.use_unified_size:
+                        brush_radius = int(ups.size)
+                    else:
+                        brush_radius = int(brush.size)
+                    
+                    # Check for unified strength
+                    if ups.use_unified_strength:
+                        brush_strength = ups.strength
+                    else:
+                        brush_strength = brush.strength
+                    
+                    brush_color = tuple(brush.color[:3])
+                    brush_hardness = brush.hardness
+                    
+                    # Debug output (only at stroke start)
+                    if is_stroke_start:
+                        unified_info = f"unified_size={ups.use_unified_size}, unified_strength={ups.use_unified_strength}"
+                        print(f"🎨 Brush '{brush.name}': radius={brush_radius}px, strength={brush_strength:.2f}, hardness={brush_hardness:.2f} ({unified_info})")
+                    
+                except Exception as e:
+                    print(f"❌ Failed to get brush settings: {e}")
+                    import traceback
+                    traceback.print_exc()
+                    return
                 
-                # Interpolate for smooth lines
+                # Smooth interpolation for connected brush strokes (like Blender Image Paint)
                 uv_coords_to_paint = []
                 
                 if is_stroke_start or _last_paint_uv is None:
                     uv_coords_to_paint = [uv_coord]
                     _stroke_paint_count = 0
                 else:
-                    # 8 steps for smooth continuous line
-                    uv_coords_to_paint = interpolate_uv(_last_paint_uv, uv_coord, steps=8)
+                    # Interpolate based on distance to get smooth lines
+                    uv_coords_to_paint = interpolate_uv(_last_paint_uv, uv_coord, steps=3)
                 
-                # Paint all positions - only write to canvas ONCE at the end
+                # Paint all interpolated positions
                 for i, uv in enumerate(uv_coords_to_paint):
                     is_first = (is_stroke_start and i == 0)
                     is_last = (i == len(uv_coords_to_paint) - 1)
                     paint_at_uv(
                         _canvas_image,
                         uv,
-                        props.brush_size,
-                        props.brush_color[:3],
-                        props.brush_intensity,
+                        brush_radius,
+                        brush_color,
+                        brush_strength,
+                        brush_hardness,  # Pass hardness for falloff curve
                         is_stroke_start=is_first,
-                        write_to_canvas=is_last  # Only write on last point!
+                        write_to_canvas=is_last  # Only write once at end
                     )
                     _stroke_paint_count += 1
                 
@@ -468,9 +561,75 @@ def paint_at_mouse(context, event, is_stroke_start=False, is_stroke_continue=Fal
 # ============================================================================
 
 def draw_handler_callback():
-    """Draw handler to keep event system active"""
-    # Empty - just keeps handler registered
-    pass
+    """Draw handler to show brush cursor - optimized to reduce lag"""
+    global _last_mouse_pos, _sphere, _paint_handler_active
+    global _last_cursor_pos, _last_brush_radius, _cursor_batch, _cursor_shader
+    
+    if not _paint_handler_active or not _last_mouse_pos:
+        return
+    
+    # Get current context
+    context = bpy.context
+    if not context.area or context.area.type != 'VIEW_3D':
+        return
+    
+    # Get brush radius from Blender - check unified paint settings!
+    try:
+        ts = bpy.context.scene.tool_settings
+        ip = ts.image_paint
+        ups = ts.unified_paint_settings
+        
+        if ip.brush:
+            # Use unified size if enabled, otherwise brush size
+            # Note: brush.size IS the radius (not diameter)
+            if ups.use_unified_size:
+                brush_radius_px = int(ups.size)
+            else:
+                brush_radius_px = int(ip.brush.size)
+        else:
+            brush_radius_px = 50
+    except Exception as e:
+        print(f"Cursor brush error: {e}")
+        brush_radius_px = 50
+    
+    # Update cursor if mouse moved OR radius changed
+    radius_changed = (_last_brush_radius != brush_radius_px)
+    mouse_moved = (_last_cursor_pos != _last_mouse_pos)
+    
+    if mouse_moved or radius_changed or _cursor_batch is None:
+        _last_cursor_pos = _last_mouse_pos
+        _last_brush_radius = brush_radius_px
+        
+        # Create circle vertices
+        segments = 32
+        vertices = []
+        center_x, center_y = _last_mouse_pos
+        
+        for i in range(segments + 1):
+            angle = 2 * math.pi * i / segments
+            x = center_x + brush_radius_px * math.cos(angle)
+            y = center_y + brush_radius_px * math.sin(angle)
+            vertices.append((x, y))
+        
+        # Cache shader and batch
+        _cursor_shader = gpu.shader.from_builtin('UNIFORM_COLOR')
+        _cursor_batch = batch_for_shader(_cursor_shader, 'LINE_STRIP', {"pos": vertices})
+    
+    # Draw cached cursor
+    if _cursor_batch and _cursor_shader:
+        try:
+            gpu.state.blend_set('ALPHA')
+            gpu.state.line_width_set(2.0)
+            
+            _cursor_shader.bind()
+            _cursor_shader.uniform_float("color", (1.0, 1.0, 1.0, 0.8))
+            _cursor_batch.draw(_cursor_shader)
+            
+            gpu.state.line_width_set(1.0)
+            gpu.state.blend_set('NONE')
+        except Exception as e:
+            # Silently ignore errors
+            pass
 
 
 # ============================================================================

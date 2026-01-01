@@ -4,6 +4,7 @@ import subprocess
 import sys
 import time
 from pathlib import Path
+import re
 
 # Try to import psutil, but don't fail if it's not available
 try:
@@ -128,15 +129,46 @@ def wait_for_blender_startup():
     print("⏳ Waiting for Blender to start...")
     time.sleep(5)  # Wait for Blender to fully initialize
 
+
+def get_addon_version(addon_init_py: Path) -> str:
+    """Best-effort read of bl_info['version'] from addon __init__.py.
+
+    Returns a string like "1.0.0". Falls back to "0.0.0" if not found.
+    """
+    try:
+        text = addon_init_py.read_text(encoding="utf-8", errors="ignore")
+        # Match: "version": (1, 0, 0)
+        match = re.search(r"\"version\"\s*:\s*\((\s*\d+\s*),\s*(\d+)\s*,\s*(\d+)\s*\)", text)
+        if match:
+            major, minor, patch = match.group(1).strip(), match.group(2), match.group(3)
+            return f"{major}.{minor}.{patch}"
+    except Exception:
+        pass
+    return "0.0.0"
+
+
+def make_unique_path(path: Path) -> Path:
+    """Return a unique path by appending a timestamp if needed."""
+    if not path.exists():
+        return path
+    stamp = time.strftime("%Y%m%d_%H%M%S")
+    return path.with_name(f"{path.stem}_{stamp}{path.suffix}")
+
 # CONFIGURATION
 BLENDER_EXE = find_blender_exe()
 ADDON_SRC = Path(__file__).parent.parent / "hdri_light_studio"
 ADDON_ZIP = ADDON_SRC.parent / "hdri_paint_studio.zip"
 
+# A separate distributable zip that will NOT be deleted (for manual install / sharing)
+DIST_DIR = ADDON_SRC.parent / "dist"
+ADDON_VERSION = get_addon_version(ADDON_SRC / "__init__.py")
+DIST_ZIP = make_unique_path(DIST_DIR / f"hdri_light_studio_{ADDON_VERSION}.zip")
+
 print("🚀 HDRI Paint Studio - Automatic Installer")
 print("=" * 50)
 print(f"📁 Source: {ADDON_SRC}")
 print(f"📦 Target: {ADDON_ZIP}")
+print(f"📦 Share Zip: {DIST_ZIP}")
 
 # Check if source exists
 if not ADDON_SRC.exists():
@@ -176,6 +208,14 @@ zip_base = str(ADDON_ZIP).replace(".zip", "")
 print("   Creating zip file...")
 shutil.make_archive(zip_base, "zip", temp_dir)
 print(f"✅ Addon zipped successfully to: {ADDON_ZIP}")
+
+# Also persist a copy for manual installation / sharing
+try:
+    DIST_DIR.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(ADDON_ZIP, DIST_ZIP)
+    print(f"✅ Shareable addon zip created: {DIST_ZIP}")
+except Exception as e:
+    print(f"⚠️  Could not create shareable zip copy: {e}")
 
 # Clean up temp directory
 shutil.rmtree(temp_dir)
