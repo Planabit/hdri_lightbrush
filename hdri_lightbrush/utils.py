@@ -1,5 +1,5 @@
 """
-Utility functions for HDRI Light Studio
+Utility functions for HDRI LightBrush
 Color temperature and other helper functions
 """
 

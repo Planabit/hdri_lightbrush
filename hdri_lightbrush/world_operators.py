@@ -1,6 +1,6 @@
 """
 World Operators Module  
-World background controls for HDRI Light Studio
+World background controls for HDRI LightBrush
 """
 
 import bpy

@@ -1,5 +1,5 @@
 """
-HDRI Light Studio - Sphere Tools
+HDRI LightBrush - Sphere Tools
 Sphere creation and material setup for HDRI preview and 3D painting
 """
 
@@ -277,6 +277,16 @@ class HDRI_OT_sphere_add(bpy.types.Operator):
         sphere_obj.hide_select = False
         sphere_obj.hide_viewport = False
         sphere_obj.show_transparent = True
+        
+        # Disable UV overlay in Image Editor
+        for area in context.screen.areas:
+            if area.type == 'IMAGE_EDITOR':
+                for space in area.spaces:
+                    if space.type == 'IMAGE_EDITOR':
+                        # Disable all overlays for cleaner HDRI view
+                        if hasattr(space, 'overlay'):
+                            space.overlay.show_overlays = False
+                        break
         
         # Start continuous paint handler
         try:

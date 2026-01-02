@@ -1,1 +1,0 @@
-# Geometry module for HDRI Light Studio

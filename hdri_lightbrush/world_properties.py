@@ -1,6 +1,6 @@
 """
 World Properties Module
-World background settings for HDRI Light Studio
+World background settings for HDRI LightBrush
 """
 
 import bpy
@@ -31,7 +31,7 @@ def sync_sphere_rotation(rotation_value):
         bpy.context.view_layer.update()
 
 class HDRIStudioWorldProperties(PropertyGroup):
-    """World background settings for HDRI Studio"""
+    """World background settings for HDRI LightBrush"""
     
     # Background Strength
     background_strength: FloatProperty(

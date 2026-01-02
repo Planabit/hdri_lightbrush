@@ -1,6 +1,6 @@
 """
 Operators Module
-Canvas creation and management operators for HDRI Light Studio
+Canvas creation and management operators for HDRI LightBrush
 """
 
 import bpy

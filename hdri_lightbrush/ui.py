@@ -1,6 +1,6 @@
 ﻿"""
-UI Module - Main HDRI Light Studio Panels
-3-Step Workflow: Canvas → Sphere → World
+UI Module - Main HDRI LightBrush Panels
+3-Step Workflow: Canvas -> Sphere -> World
 """
 
 import bpy
@@ -8,12 +8,12 @@ from bpy.types import Panel
 
 
 class HDRI_PT_main_panel(Panel):
-    """Main HDRI Light Studio panel with 3-step workflow"""
-    bl_label = "HDRI Light Studio"
+    """Main HDRI LightBrush panel with 3-step workflow"""
+    bl_label = "HDRI LightBrush"
     bl_idname = "HDRI_PT_main_panel"
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
-    bl_category = "HDRI Studio"
+    bl_category = "HDRI LightBrush"
     
     def draw(self, context):
         layout = self.layout

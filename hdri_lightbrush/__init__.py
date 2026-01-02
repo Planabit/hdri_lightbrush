@@ -1,10 +1,10 @@
 bl_info = {
-    "name": "HDRI Light Studio",
-    "author": "HDRI Light Studio Team",
+    "name": "HDRI LightBrush",
+    "author": "Tamas Laszlo (planabit@gmail.com)",
     "version": (1, 0, 0),
     "blender": (4, 2, 0),
-    "location": "3D Viewport > Sidebar > HDRI Studio",
-    "description": "KeyShot-style HDRI editor with real-time 3D painting",
+    "location": "3D Viewport > Sidebar > HDRI LightBrush",
+    "description": "HDRI editor with real-time 3D painting",
     "category": "Lighting",
 }
 

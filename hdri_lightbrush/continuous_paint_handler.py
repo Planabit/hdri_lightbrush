@@ -1,5 +1,5 @@
 """
-HDRI Light Studio - Continuous Paint Handler
+HDRI LightBrush - Continuous Paint Handler
 Non-blocking continuous painting on 3D sphere surface.
 """
 

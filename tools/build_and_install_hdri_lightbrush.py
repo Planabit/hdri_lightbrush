@@ -82,6 +82,7 @@ def clean_blender_cache():
                 version_path = os.path.join(base_path, version_dir)
                 if os.path.isdir(version_path):
                     cache_paths.extend([
+                        os.path.join(version_path, "scripts", "addons", "hdri_lightbrush"),
                         os.path.join(version_path, "scripts", "addons", "hdri_light_studio"),
                         os.path.join(version_path, "scripts", "addons", "hdri_light_studio_v2"),
                         os.path.join(version_path, "config", "startup.blend"),
@@ -105,7 +106,7 @@ def clean_blender_cache():
             print(f"  ⚠️  Could not remove {path}: {e}")
     
     # Clean source Python cache
-    addon_src = Path(__file__).parent.parent / "hdri_light_studio"
+    addon_src = Path(__file__).parent.parent / "hdri_lightbrush"
     if addon_src.exists():
         print("🧹 Cleaning source Python cache...")
         for pycache_dir in addon_src.rglob("__pycache__"):
@@ -153,15 +154,15 @@ def make_versioned_path(path: Path) -> Path:
 
 # CONFIGURATION
 BLENDER_EXE = find_blender_exe()
-ADDON_SRC = Path(__file__).parent.parent / "hdri_light_studio"
-ADDON_ZIP = ADDON_SRC.parent / "hdri_paint_studio.zip"
+ADDON_SRC = Path(__file__).parent.parent / "hdri_lightbrush"
+ADDON_ZIP = ADDON_SRC.parent / "hdri_lightbrush.zip"
 
 # A separate distributable zip that will NOT be deleted (for manual install / sharing)
 DIST_DIR = ADDON_SRC.parent / "dist"
 ADDON_VERSION = get_addon_version(ADDON_SRC / "__init__.py")
-DIST_ZIP = make_versioned_path(DIST_DIR / f"hdri_light_studio_{ADDON_VERSION}.zip")
+DIST_ZIP = make_versioned_path(DIST_DIR / f"hdri_lightbrush_{ADDON_VERSION}.zip")
 
-print("🚀 HDRI Paint Studio - Automatic Installer")
+print("🚀 HDRI LightBrush - Automatic Installer")
 print("=" * 50)
 print(f"📁 Source: {ADDON_SRC}")
 print(f"📦 Target: {ADDON_ZIP}")
@@ -185,7 +186,7 @@ if os.path.exists(temp_dir):
 os.makedirs(temp_dir)
 
 # Copy addon files to temp directory with correct structure
-temp_addon_dir = os.path.join(temp_dir, "hdri_light_studio")
+temp_addon_dir = os.path.join(temp_dir, "hdri_lightbrush")
 print(f"   Creating temporary structure in {temp_dir}...")
 shutil.copytree(ADDON_SRC, temp_addon_dir)
 
@@ -250,7 +251,7 @@ import sys
 print("🧹 Deep cleaning Blender addon cache...")
 
 # Force clear module cache
-modules_to_clear = [name for name in sys.modules.keys() if 'hdri_light_studio' in name]
+modules_to_clear = [name for name in sys.modules.keys() if 'hdri_lightbrush' in name or 'hdri_light_studio' in name]
 for module_name in modules_to_clear:
     del sys.modules[module_name]
     print(f"   Cleared module: {{module_name}}")
@@ -258,6 +259,7 @@ for module_name in modules_to_clear:
 # Remove old addon installations
 try:
     import addon_utils
+    addon_utils.disable("hdri_lightbrush", default_set=True)
     addon_utils.disable("hdri_light_studio", default_set=True)
     addon_utils.disable("hdri_light_studio_v2", default_set=True)
     print("   Disabled old versions")
@@ -290,20 +292,20 @@ try:
     
     # Try to import and reload the addon module
     try:
-        if 'hdri_light_studio' in sys.modules:
-            importlib.reload(sys.modules['hdri_light_studio'])
+        if 'hdri_lightbrush' in sys.modules:
+            importlib.reload(sys.modules['hdri_lightbrush'])
     except:
         pass
     
     # Enable the addon (using zip filename as module name)
-    bpy.ops.preferences.addon_enable(module="hdri_light_studio")
+    bpy.ops.preferences.addon_enable(module="hdri_lightbrush")
     print("✅ Addon enabled successfully")
 except Exception as e:
     print(f"⚠️  Error enabling addon: {{str(e)}}")
     # Try manual registration as fallback
     try:
-        import hdri_light_studio
-        hdri_light_studio.register()
+        import hdri_lightbrush
+        hdri_lightbrush.register()
         print("✅ Addon manually registered")
     except Exception as e2:
         print(f"❌ Manual registration failed: {{str(e2)}}")
@@ -313,7 +315,7 @@ print("🔍 Verifying installation...")
 try:
     # Check if the addon classes are registered
     if hasattr(bpy.ops, 'hdrils'):
-        print("✅ HDRI Light Studio operators are available")
+        print("✅ HDRI LightBrush operators are available")
         
         # Check specific operators
         if hasattr(bpy.ops.hdrils, 'create_canvas'):
@@ -323,7 +325,7 @@ try:
         if hasattr(bpy.ops.hdrils, 'place_light_shape'):
             print("✅ Light shape operator found")
     else:
-        print("⚠️  HDRI Light Studio operators not found")
+        print("⚠️  HDRI LightBrush operators not found")
         
     # Check properties
     if hasattr(bpy.context.scene, 'hdrils_props'):
@@ -355,10 +357,10 @@ except Exception as e:
 
 print("🎉 Installation complete!")
 print("")
-print("📍 To use HDRI Light Studio:")
+print("📍 To use HDRI LightBrush:")
 print("   1. Open 3D Viewport")
 print("   2. Press 'N' to show sidebar")
-print("   3. Find 'HDRI Studio' tab")
+print("   3. Find 'HDRI LightBrush' tab")
 print("   4. Start creating and painting HDRIs!")
 """
 
@@ -399,12 +401,12 @@ subprocess.Popen([BLENDER_EXE])
 wait_for_blender_startup()
 
 print("✅ Blender restarted successfully!")
-print("\n🎨 HDRI Light Studio is ready!")
+print("\n🎨 HDRI LightBrush is ready!")
 print("=" * 50)
 print("📍 To use the addon:")
 print("   1. Open 3D Viewport")
 print("   2. Press 'N' to show sidebar")  
-print("   3. Find 'HDRI Studio' tab")
+print("   3. Find 'HDRI LightBrush' tab")
 print("   4. Click 'Create 2K Canvas' or 'Create 4K Canvas'")
 print("   5. Start painting your HDRI!")
 print("\n� Happy HDRI editing!")

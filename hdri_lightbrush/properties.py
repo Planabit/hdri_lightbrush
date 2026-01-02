@@ -1,6 +1,6 @@
 """
 Properties Module
-Scene and tool properties for HDRI Light Studio
+Scene and tool properties for HDRI LightBrush
 """
 
 import bpy
@@ -12,7 +12,7 @@ from bpy.types import PropertyGroup
 
 
 class HDRIStudioProperties(PropertyGroup):
-    """Main property group for HDRI Studio settings"""
+    """Main property group for HDRI LightBrush settings"""
     
     # Canvas properties
     canvas_size: EnumProperty(
