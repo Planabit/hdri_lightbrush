@@ -73,8 +73,29 @@ python tools/build_and_install_hdri_lightbrush.py
 
 Output: `dist/hdri_lightbrush_....zip`
 
+## Support & Development
+
+HDRI LightBrush is **free and open-source** software. If you find it useful, consider supporting development:
+
+### ☕ Support via Donations
+- **Ko-fi**: [ko-fi.com/tamaslaszlo](https://ko-fi.com/tamaslaszlo) - One-time donations
+- **Patreon**: [patreon.com/tamaslaszlo](https://patreon.com/tamaslaszlo) - Monthly support & early access
+- **GitHub Sponsors**: [github.com/sponsors/tamaslaszlo](https://github.com/sponsors/tamaslaszlo) - Support development
+
+### 🚀 Custom Development
+Need additional features or custom modifications?
+
+- **Hourly Rate**: $50-80/hour (depending on complexity)
+- **Feature Requests**: Contact via [planabit@gmail.com](mailto:planabit@gmail.com?subject=HDRI%20LightBrush%20-%20Feature%20Request)
+- **Priority Support**: Available for Patreon supporters
+
+### 📣 Roadmap & Feature Voting
+- Check the [GitHub Issues](https://github.com/yourusername/hdri_lightbrush/issues) for planned features
+- Vote with 👍 on features you'd like to see prioritized
+- Suggest new features in [Discussions](https://github.com/yourusername/hdri_lightbrush/discussions)
+
 ## License
 
-MIT
+MIT License - See [LICENSE](LICENSE) file for details
 
 

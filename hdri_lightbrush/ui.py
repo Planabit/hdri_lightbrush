@@ -140,8 +140,39 @@ class HDRI_PT_main_panel(Panel):
 # World Settings Panel removed - controls integrated into main panel Step 3
 
 
+class HDRI_PT_Support(bpy.types.Panel):
+    """Support panel for donations and custom development"""
+    bl_label = "Support Development"
+    bl_idname = "HDRI_PT_support"
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'UI'
+    bl_category = "HDRI LightBrush"
+    bl_options = {'DEFAULT_CLOSED'}
+
+    def draw(self, context):
+        layout = self.layout
+        
+        box = layout.box()
+        box.label(text="Enjoying HDRI LightBrush?", icon='HEART')
+        
+        col = box.column(align=True)
+        col.operator("wm.url_open", text="Buy Me a Coffee", icon='URL').url = "https://ko-fi.com/tamaslaszlo"
+        col.operator("wm.url_open", text="Support on Patreon", icon='URL').url = "https://patreon.com/tamaslaszlo"
+        col.operator("wm.url_open", text="GitHub Sponsors", icon='URL').url = "https://github.com/sponsors/tamaslaszlo"
+        
+        box.separator()
+        box.label(text="Need custom features?", icon='MODIFIER')
+        box.operator("wm.url_open", text="Contact for Development", icon='MAIL').url = "mailto:planabit@gmail.com?subject=HDRI%20LightBrush%20-%20Custom%20Development"
+        
+        box.separator()
+        col = box.column(align=True)
+        col.scale_y = 0.8
+        col.label(text="Free & Open Source - MIT License", icon='INFO')
+
+
 classes = [
     HDRI_PT_main_panel,
+    HDRI_PT_Support,
 ]
 
 

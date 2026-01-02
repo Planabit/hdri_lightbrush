@@ -1,0 +1,51 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Get version from tag
+      id: get_version
+      run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+    
+    - name: Create addon zip
+      run: |
+        mkdir -p dist
+        cd hdri_lightbrush
+        zip -r ../dist/hdri_lightbrush_${{ steps.get_version.outputs.VERSION }}.zip . -x "*/\.*" "*/__pycache__/*" "*.pyc"
+    
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: dist/hdri_lightbrush_*.zip
+        body: |
+          ## HDRI LightBrush ${{ steps.get_version.outputs.VERSION }}
+          
+          ### Installation
+          1. Download `hdri_lightbrush_${{ steps.get_version.outputs.VERSION }}.zip`
+          2. In Blender: Edit → Preferences → Add-ons → Install
+          3. Select the zip file
+          4. Enable "HDRI LightBrush"
+          
+          ### Support Development
+          - ☕ [Ko-fi](https://ko-fi.com/tamaslaszlo)
+          - 🎨 [Patreon](https://patreon.com/tamaslaszlo)
+          - 💜 [GitHub Sponsors](https://github.com/sponsors/tamaslaszlo)
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

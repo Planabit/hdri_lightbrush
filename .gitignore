@@ -1,9 +1,31 @@
+# Python
 __pycache__/
 *.pyc
-.env
-.vscode/
-.idea/
-.DS_Store
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Blender
 *.blend1
 *.blend2
 *.log
+
+# Build artifacts
+dist/
+*.zip
+temp_build/
+
+# Environment
+.env
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
