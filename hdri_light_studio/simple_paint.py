@@ -80,9 +80,8 @@ class HDRI_OT_create_canvas_and_paint(Operator):
                             space.image = canvas_image
                             space.mode = 'PAINT'
                             space.show_gizmo = True
-                            space.show_region_ui = True  # Show brush settings sidebar
+                            space.show_region_ui = True
                             new_area.tag_redraw()
-                            print("Created Image Editor in split area with paint mode")
                             break
             
             # Setup texture paint settings and activate brush
@@ -97,12 +96,11 @@ class HDRI_OT_create_canvas_and_paint(Operator):
                     else:
                         # Create new brush for HDRI painting
                         brush = bpy.data.brushes.new("HDRI_Brush", mode='TEXTURE_PAINT')
-                        brush.color = (1.0, 1.0, 1.0)  # White for light painting
+                        brush.color = (1.0, 1.0, 1.0)
                         brush.size = 50
                         brush.strength = 1.0
                         brush.blend = 'MIX'
                         settings.brush = brush
-                        print("Created HDRI brush")
             
             # NO workspace switch - keep current workspace to preserve addon panel
             
@@ -151,7 +149,6 @@ class HDRI_OT_paint_brush_stroke(Operator):
             return {'FINISHED'}
             
         except Exception as e:
-            print(f"Paint stroke failed: {e}")
             return {'CANCELLED'}
     
     def paint_at_pixel(self, image, x, y, brush_size, color, intensity):
@@ -185,7 +182,7 @@ class HDRI_OT_paint_brush_stroke(Operator):
             image.update()
             
         except Exception as e:
-            print(f"Pixel painting failed: {e}")
+            pass
 
 def register():
     bpy.utils.register_class(HDRI_OT_create_canvas_and_paint)

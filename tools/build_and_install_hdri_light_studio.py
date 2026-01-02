@@ -147,12 +147,9 @@ def get_addon_version(addon_init_py: Path) -> str:
     return "0.0.0"
 
 
-def make_unique_path(path: Path) -> Path:
-    """Return a unique path by appending a timestamp if needed."""
-    if not path.exists():
-        return path
-    stamp = time.strftime("%Y%m%d_%H%M%S")
-    return path.with_name(f"{path.stem}_{stamp}{path.suffix}")
+def make_versioned_path(path: Path) -> Path:
+    """Return versioned path - overwrites same version until version bump."""
+    return path
 
 # CONFIGURATION
 BLENDER_EXE = find_blender_exe()
@@ -162,7 +159,7 @@ ADDON_ZIP = ADDON_SRC.parent / "hdri_paint_studio.zip"
 # A separate distributable zip that will NOT be deleted (for manual install / sharing)
 DIST_DIR = ADDON_SRC.parent / "dist"
 ADDON_VERSION = get_addon_version(ADDON_SRC / "__init__.py")
-DIST_ZIP = make_unique_path(DIST_DIR / f"hdri_light_studio_{ADDON_VERSION}.zip")
+DIST_ZIP = make_versioned_path(DIST_DIR / f"hdri_light_studio_{ADDON_VERSION}.zip")
 
 print("🚀 HDRI Paint Studio - Automatic Installer")
 print("=" * 50)

@@ -78,13 +78,12 @@ class HDRI_OT_set_world_background(Operator):
             return {'CANCELLED'}
     
     def setup_viewport_shading(self, context):
-        """Setup viewport to show world background"""
+        """Setup viewport to show world background in both material and rendered modes"""
         for area in context.screen.areas:
             if area.type == 'VIEW_3D':
                 for space in area.spaces:
                     if space.type == 'VIEW_3D':
-                        # Set to material shading to see world
-                        space.shading.type = 'MATERIAL'
+                        # Enable scene world for both material and rendered preview
                         space.shading.use_scene_world = True
                         space.shading.use_scene_world_render = True
                         area.tag_redraw()
@@ -196,16 +195,14 @@ class HDRI_OT_remove_world_background(Operator):
             self.report({'ERROR'}, f"Failed to remove background: {e}")
             return {'CANCELLED'}
 
+
 def register():
-    """Register world operators"""
     bpy.utils.register_class(HDRI_OT_set_world_background)
     bpy.utils.register_class(HDRI_OT_update_world_background) 
     bpy.utils.register_class(HDRI_OT_remove_world_background)
-    print("World operators module registered")
+
 
 def unregister():
-    """Unregister world operators"""
     bpy.utils.unregister_class(HDRI_OT_remove_world_background)
     bpy.utils.unregister_class(HDRI_OT_update_world_background)
     bpy.utils.unregister_class(HDRI_OT_set_world_background)
-    print("World operators module unregistered")

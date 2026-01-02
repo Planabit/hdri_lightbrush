@@ -80,20 +80,12 @@ class HDRI_PT_main_panel(Panel):
                 row = step2_box.row()
                 row.label(text="Create canvas first", icon='INFO')
             else:
-                # Sphere type selection
-                row = step2_box.row()
-                row.prop(sphere_props, "sphere_type", text="Type")
-                
                 # Add sphere button
                 row = step2_box.row(align=True)
                 row.scale_y = 1.5
                 row.operator("hdri_studio.sphere_add", text="Add Sphere", icon='SPHERE')
         else:
             # Sphere exists - painting is automatic!
-            row = step2_box.row()
-            row.label(text=f"Type: {sphere_props.sphere_type.replace('_', ' ').title()}")
-            
-            # Info about automatic painting
             row = step2_box.row()
             row.label(text="Click & drag on sphere to paint", icon='INFO')
             
@@ -156,10 +148,8 @@ classes = [
 def register():
     for cls in classes:
         bpy.utils.register_class(cls)
-    print("UI panels registered")
 
 
 def unregister():
     for cls in reversed(classes):
         bpy.utils.unregister_class(cls)
-    print("UI panels unregistered")

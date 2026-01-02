@@ -1,82 +1,74 @@
-# HDRI Light Studio - KeyShot-Style HDRI Editor for Blender
+# HDRI Light Studio v1.0.0
 
-**Professional 2D HDRI painting system with real-time interactive editing capabilities**
+**3D HDRI painting addon for Blender with real-time sphere preview**
 
-> 🎨 **Goal**: Create a KeyShot-like HDRI editing experience directly within Blender panels
-> 
-> 🖱️ **Features**: Real-time mouse painting + shape-based light placement tools
-> 
-> �️ **Lighting**: Variable intensity and color temperature light source painting
+## Features
 
-## ✨ Key Features
+- **3D Paint on Sphere**: Paint directly on a preview sphere in the 3D viewport
+- **Real-time Preview**: See HDRI changes instantly on the sphere surface  
+- **Blender Brush Integration**: Uses native Blender brushes (radius, strength, falloff)
+- **Spacing-based Painting**: Matches Blender's native paint behavior
+- **Stroke Buffer**: No paint accumulation within strokes
+- **World Background**: Apply painted HDRI as world environment
 
-### 🎯 Core Functionality
-- **Real-time 2D Canvas**: Interactive HDRI painting with instant feedback
-- **Empty Canvas Creation**: Generate 2K (2048x1024) and 4K (4096x2048) HDRI canvases
-- **Custom Canvas Sizes**: Create canvases with user-defined dimensions
-- **HDRI Loading**: Load existing HDRI files (.exr, .hdr, .jpg, .png)
-- **Panel-embedded Display**: View and edit HDRI directly within Blender panels
+## Requirements
 
-### 🔥 KeyShot-Inspired Tools
-- **Interactive Light Placement**: Click and drag light positioning
-- **Temperature Control**: Kelvin-based color temperature (1000K-40000K)
-- **Brush System**: Configurable size, intensity, and falloff controls
-- **Shape Library**: Circle, square, and rectangle light placement tools
-- **Modal Painting**: Real-time mouse-based light painting
+- Blender 4.2+
+- Python 3.11+ (bundled with Blender)
 
-### 🏗️ Technical Architecture  
-- **Panel-embedded Canvas**: Integrated directly into Blender's UI system
-- **Template Image Display**: Professional HDRI viewing with editing capabilities
-- **Modular Design**: Clean separation of rendering, properties, and UI
-- **Automated Installation**: One-click installer for easy setup
-- **Blender 4.2+ Ready**: Modern API compatibility with future-proofing
+## Installation
 
-## � Project Structure
+1. Download `hdri_light_studio_1.0.0.zip` from `dist/` folder
+2. Open Blender → Edit → Preferences → Add-ons
+3. Click "Install from Disk" and select the zip file
+4. Enable "HDRI Light Studio" addon
+
+## Quick Start
+
+1. Open 3D Viewport, press N to show sidebar
+2. Go to "HDRI Studio" tab
+3. Click "New Canvas" to create 2K or 4K HDRI
+4. Click "Add Sphere" to create preview sphere
+5. Paint on the sphere with left mouse button
+6. Configure brush in Image Editor sidebar (Radius, Strength, Hardness)
+7. Click "Set Background" to apply to world
+
+## Modules
 
 ```
-hdri_light_studio/                    # Main addon directory
-├── __init__.py                       # Addon registration & metadata
-├── properties/                       # Property group definitions
-│   └── __init__.py                   # Canvas, light, and tool properties  
-├── operators/                        # Interactive operators
-│   └── __init__.py                   # Modal painting and shape placement
-├── canvas/                           # GPU-based rendering system
-│   └── __init__.py                   # HDRICanvas class with paint methods
-├── ui/                              # User interface panels
-│   └── __init__.py                   # Main panel with tool controls
-├── utils/                           # Utility functions
-│   └── __init__.py                   # Color conversion, file handling
-└── archive/                         # Previous implementation attempts
-    ├── hdri_utils.py        # HDRI kezelés
-    └── color_utils.py       # Szín számítások
+hdri_light_studio/
+├── __init__.py              # Addon registration
+├── properties.py            # Canvas properties
+├── operators.py             # Canvas operators  
+├── ui.py                    # Main panel
+├── continuous_paint_handler.py  # 3D painting system
+├── sphere_tools.py          # Sphere creation/material
+├── simple_paint.py          # 2D painting setup
+├── hdri_save.py             # Load/save HDRI
+├── world_properties.py      # World settings
+├── world_operators.py       # World operators
+├── utils.py                 # Color utilities
+└── geometry/                # Sphere geometry
 ```
 
-## 🚀 Installation / Telepítés
+## Workflow
 
-### 🎯 Quick Install / Gyors Telepítés
-1. **Automated Installer** / Automatikus telepítő:
-   ```bash
-   cd tools
-   python install_hdri_light_studio.py
-   ```
-   Or run / Vagy futtasd: `quick_install_hdri_light_studio.bat`
+1. **Create Canvas** → Empty HDRI image (2K/4K)
+2. **Add Sphere** → Transparent preview sphere around camera
+3. **Paint** → Click and drag on sphere to paint lights
+4. **Set World** → Apply HDRI as scene background
 
-2. **Manual Installation** / Kézi telepítés:
-   - Open Blender / Nyisd meg a Blendert
-   - Go to `Edit > Preferences > Add-ons`
-   - Click `Install from Disk` / Kattints az `Install from Disk`-re
-   - Select the `hdri_light_studio` folder / Válaszd ki a `hdri_light_studio` mappát
-   - Enable the addon / Engedélyezd az addont
+## Build
 
-3. **Access the Panel** / Panel elérése:
-   - `3D Viewport > Sidebar (N) > HDRI Studio` tab
+```bash
+python tools/build_and_install_hdri_light_studio.py
+```
 
-## 🎨 Usage / Használat
+Output: `dist/hdri_light_studio_1.0.0.zip`
 
-### Canvas Creation / Canvas Létrehozás
-- **Quick Presets**: `2K` (2048x1024) or `4K` (4096x2048) buttons
-- **Custom Size**: Set width/height and click `New`
-- **Load HDRI**: Import existing HDRI files
+## License
+
+MIT
 
 ### Light Painting / Fény Festés
 - **Brush Tool**: Select brush and click `Start Painting`
@@ -84,68 +76,4 @@ hdri_light_studio/                    # Main addon directory
 - **Temperature Control**: Set Kelvin temperature (1000K-40000K)
 - **Intensity**: Control light brightness and falloff
 
-## � Technical Requirements / Technikai Követelmények
-
-- **Blender 4.2+** (recommended / ajánlott)
-- **Python 3.11+**
-- **NumPy** (automatically installed / automatikusan települ)
-- **Windows/macOS/Linux** support
-
-## 📝 Development Status / Fejlesztési Állapot
-
-### ✅ Completed Features / Kész Funkciók
-- [x] Modular addon architecture
-- [x] Canvas creation (2K/4K/custom)
-- [x] HDRI loading and display
-- [x] Panel-embedded UI
-- [x] Modal painting operators
-- [x] Automated installer
-- [x] Temperature-based color system
-
-### 🔄 In Progress / Fejlesztés Alatt
-- [ ] Real-time pixel painting
-- [ ] Advanced brush system
-- [ ] Shape-based light placement
-- [ ] Undo/Redo functionality
-
-### 📋 Planned Features / Tervezett Funkciók
-- [ ] KeyShot export compatibility
-- [ ] Advanced shape library
-- [ ] Gradient light tools
-- [ ] Real-time preview rendering
-
-## 🐛 Troubleshooting / Hibaelhárítás
-
-### "Source code string cannot contain null bytes" Error
-**Problem**: File corruption during development can introduce null bytes.
-
-**Solution**: 
-```bash
-# Check for null bytes
-[System.IO.File]::ReadAllBytes("file.py") | Where-Object { $_ -eq 0 } | Measure-Object
-
-# Reinstall clean version
-python tools/install_hdri_light_studio.py
-```
-
-### Addon Not Loading in Blender
-1. **Check Blender version**: Requires Blender 4.2+
-2. **Clear Blender cache**: Restart Blender completely
-3. **Manual installation**: Use Blender's "Install from Disk" feature
-4. **Check console**: Look for Python errors in Blender's console
-
-### Canvas Not Displaying
-- Ensure addon is **enabled** in preferences
-- Try creating a **new canvas** (2K/4K buttons)
-- Check that `Show Canvas` is **enabled** in Advanced panel 
-- HD preview display with navigation arrows
-- Professional UI layout matching sample addon pattern
-- Support for HDR and EXR file formats
-- template_icon_view implementation for large image display
-
-## Support
-
-This addon was created to provide a clean, professional HDRI editing interface within Blender.
-
-## License
-MIT
+## � Technical Requirements / Technikai KövetelményekMIT

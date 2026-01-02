@@ -110,9 +110,7 @@ class HDRIStudioProperties(PropertyGroup):
 def register():
     """Register property classes"""
     bpy.utils.register_class(HDRIStudioProperties)
-    print("Properties module registered")
 
 def unregister():
     """Unregister property classes"""
     bpy.utils.unregister_class(HDRIStudioProperties)
-    print("Properties module unregistered")

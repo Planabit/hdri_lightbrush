@@ -4,81 +4,60 @@ bl_info = {
     "version": (1, 0, 0),
     "blender": (4, 2, 0),
     "location": "3D Viewport > Sidebar > HDRI Studio",
-    "description": "KeyShot-style HDRI editor with inline canvas editing",
+    "description": "KeyShot-style HDRI editor with real-time 3D painting",
     "category": "Lighting",
 }
 
 import bpy
 from bpy.props import PointerProperty
 
-# Import addon modules
 from . import properties
 from . import operators  
 from . import ui
-from . import canvas_renderer
-from . import simple_canvas
 from . import utils
 from . import simple_paint
 from . import world_properties
 from . import world_operators
 from . import hdri_save
 from . import sphere_tools
-from . import viewport_paint_operator
 from . import continuous_paint_handler
 
-# Module registration list
 modules = [
     properties,
     operators,
     ui, 
-    canvas_renderer,
-    simple_canvas,
     utils,
     simple_paint,
     world_properties,
     world_operators,
     hdri_save,
     sphere_tools,
-    viewport_paint_operator,
     continuous_paint_handler,
 ]
 
+
 def register():
-    """Register all addon modules and properties"""
-    try:
-        # Register all modules
-        for module in modules:
-            module.register()
-        
-        # Register scene properties
-        bpy.types.Scene.hdri_studio = PointerProperty(type=properties.HDRIStudioProperties)
-        bpy.types.Scene.hdri_studio_world = PointerProperty(type=world_properties.HDRIStudioWorldProperties)
-        bpy.types.Scene.sphere_props = PointerProperty(type=sphere_tools.SphereProperties)
-        
-        print("HDRI Light Studio registered successfully")
-        
-    except Exception as e:
-        print(f"HDRI Light Studio registration failed: {e}")
+    """Register all addon modules"""
+    for module in modules:
+        module.register()
+    
+    bpy.types.Scene.hdri_studio = PointerProperty(type=properties.HDRIStudioProperties)
+    bpy.types.Scene.hdri_studio_world = PointerProperty(type=world_properties.HDRIStudioWorldProperties)
+    bpy.types.Scene.sphere_props = PointerProperty(type=sphere_tools.SphereProperties)
+
 
 def unregister():
-    """Unregister all addon modules and properties"""
-    try:
-        # Unregister scene properties
-        if hasattr(bpy.types.Scene, 'hdri_studio'):
-            del bpy.types.Scene.hdri_studio
-        if hasattr(bpy.types.Scene, 'hdri_studio_world'):
-            del bpy.types.Scene.hdri_studio_world
-        if hasattr(bpy.types.Scene, 'sphere_props'):
-            del bpy.types.Scene.sphere_props
-        
-        # Unregister all modules in reverse order
-        for module in reversed(modules):
-            module.unregister()
-            
-        print("HDRI Light Studio unregistered successfully")
-        
-    except Exception as e:
-        print(f"HDRI Light Studio unregistration failed: {e}")
+    """Unregister all addon modules"""
+    if hasattr(bpy.types.Scene, 'hdri_studio'):
+        del bpy.types.Scene.hdri_studio
+    if hasattr(bpy.types.Scene, 'hdri_studio_world'):
+        del bpy.types.Scene.hdri_studio_world
+    if hasattr(bpy.types.Scene, 'sphere_props'):
+        del bpy.types.Scene.sphere_props
+    
+    for module in reversed(modules):
+        module.unregister()
+
 
 if __name__ == "__main__":
     register()
