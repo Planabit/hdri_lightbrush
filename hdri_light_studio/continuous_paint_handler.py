@@ -296,21 +296,24 @@ def interpolate_uv(uv_start, uv_end, steps=5):
 def paint_at_uv(canvas_image, uv_coord, brush_size, brush_color, brush_strength, brush_hardness, brush_curve=None, is_stroke_start=False, write_to_canvas=True):
     """
     FULLY VECTORIZED numpy paint with Blender's actual falloff curve.
+    Uses stroke buffer to prevent paint accumulation within a single stroke (like Blender).
     
     Args:
         brush_hardness: 0.0 (soft/smooth falloff) to 1.0 (hard edge)
         brush_curve: The actual Blender brush.curve CurveMapping for precise falloff
     """
-    global _pixel_buffer
+    global _pixel_buffer, _stroke_base_pixels, _stroke_alpha_buffer
     
     try:
         width, height = canvas_image.size
         pixel_x = int(uv_coord[0] * width)
         pixel_y = int(uv_coord[1] * height)
         
-        # Load pixels: FRESH at stroke start, cached during stroke
+        # At stroke start: save original pixels and create alpha accumulator
         if is_stroke_start or _pixel_buffer is None or len(_pixel_buffer) != width * height * 4:
             _pixel_buffer = np.array(canvas_image.pixels[:], dtype=np.float32)
+            _stroke_base_pixels = _pixel_buffer.copy()  # Original state before stroke
+            _stroke_alpha_buffer = np.zeros((height, width), dtype=np.float32)  # Max alpha per pixel
         
         # Brush bounds
         x_min = max(0, pixel_x - brush_size)
@@ -339,18 +342,12 @@ def paint_at_uv(canvas_image, uv_coord, brush_size, brush_color, brush_strength,
         # Use Blender's brush curve if available
         if brush_curve is not None:
             # Sample the curve for each unique distance value
-            # The curve maps: 0.0 (center) -> 1.0, 1.0 (edge) -> 0.0 (typically)
             falloff = np.zeros_like(dist)
-            
-            # Get unique distances to minimize curve evaluations
             flat_dist = normalized_dist.flatten()
             flat_falloff = np.zeros_like(flat_dist)
             
-            # Blender curve.evaluate() takes input 0-1 and returns falloff value
             for i, d in enumerate(flat_dist):
                 if d <= 1.0:
-                    # Blender's curve: input is distance (0=center, 1=edge)
-                    # output is strength multiplier (1=full, 0=none)
                     flat_falloff[i] = brush_curve.evaluate(brush_curve.curves[0], d)
                 else:
                     flat_falloff[i] = 0.0
@@ -372,19 +369,27 @@ def paint_at_uv(canvas_image, uv_coord, brush_size, brush_color, brush_strength,
                 
                 falloff = np.clip(falloff, 0, 1)
         
-        alpha = (falloff * brush_strength) * mask
+        # Calculate this dab's alpha
+        dab_alpha = (falloff * brush_strength) * mask
         
-        # Reshape pixel buffer to 2D for easy indexing
+        # STROKE BUFFER: Update with MAX (don't accumulate, keep highest alpha)
+        # This is how Blender prevents paint buildup within a stroke
+        alpha_region = _stroke_alpha_buffer[y_min:y_max, x_min:x_max]
+        np.maximum(alpha_region, dab_alpha, out=alpha_region)
+        
+        # Blend from ORIGINAL pixels using accumulated stroke alpha
+        # This ensures no accumulation within stroke
+        base_2d = _stroke_base_pixels.reshape((height, width, 4))
         pixels_2d = _pixel_buffer.reshape((height, width, 4))
         
-        # Extract brush region
+        base_region = base_2d[y_min:y_max, x_min:x_max, :3]
         region = pixels_2d[y_min:y_max, x_min:x_max, :3]
         
-        # Vectorized blend
-        alpha_3d = alpha[:, :, np.newaxis]
-        # Convert brush color from sRGB to Linear to match canvas color space
+        alpha_3d = alpha_region[:, :, np.newaxis]
         brush_rgb_linear = np.array(srgb_to_linear(brush_color), dtype=np.float32)
-        region[:] = region * (1.0 - alpha_3d) + brush_rgb_linear * alpha_3d
+        
+        # Blend: original + (brush - original) * alpha = lerp(original, brush, alpha)
+        region[:] = base_region * (1.0 - alpha_3d) + brush_rgb_linear * alpha_3d
         
         # Only write to canvas when requested
         if write_to_canvas:
@@ -394,7 +399,14 @@ def paint_at_uv(canvas_image, uv_coord, brush_size, brush_color, brush_strength,
         
     except Exception as e:
         print(f"Paint error: {e}")
+        import traceback
+        traceback.print_exc()
         return False
+
+
+# Global stroke buffers
+_stroke_base_pixels = None
+_stroke_alpha_buffer = None
 
 
 def update_3d_viewport():
@@ -426,6 +438,28 @@ def update_3d_viewport():
 # MOUSE EVENT HANDLER
 # ============================================================================
 
+def is_mouse_in_main_region(context, event):
+    """Check if mouse is in the main 3D viewport region (not over UI panels/headers)"""
+    # Get mouse position
+    mouse_x = event.mouse_x
+    mouse_y = event.mouse_y
+    
+    # Find the VIEW_3D area the mouse is actually over
+    for area in context.screen.areas:
+        if area.type == 'VIEW_3D':
+            # Check if mouse is within this area bounds
+            if (area.x <= mouse_x < area.x + area.width and
+                area.y <= mouse_y < area.y + area.height):
+                # Now check which region within the area
+                for region in area.regions:
+                    if (region.x <= mouse_x < region.x + region.width and
+                        region.y <= mouse_y < region.y + region.height):
+                        # Only allow painting in the main WINDOW region
+                        # This excludes: HEADER, TOOLS, UI (N-panel), TOOL_HEADER, etc.
+                        return region.type == 'WINDOW'
+    return False
+
+
 def mouse_event_handler(context, event):
     """Handle mouse events for continuous painting with smooth brush strokes"""
     global _is_painting, _last_mouse_pos, _sphere, _canvas_image
@@ -438,6 +472,14 @@ def mouse_event_handler(context, event):
     # Only in 3D viewport
     if context.area.type != 'VIEW_3D':
         return
+    
+    # Check if mouse is in the main viewport region (not over UI elements)
+    if not is_mouse_in_main_region(context, event):
+        # If we were painting, end the stroke
+        if _is_painting and event.type == 'LEFTMOUSE' and event.value == 'RELEASE':
+            _is_painting = False
+            _last_mouse_pos = None
+        return  # Don't process paint events over UI
     
     # LEFT MOUSE BUTTON
     if event.type == 'LEFTMOUSE':
@@ -557,41 +599,61 @@ def paint_at_mouse(context, event, is_stroke_start=False, is_stroke_continue=Fal
                     dx = uv_coord[0] - _last_paint_uv[0]
                     dy = uv_coord[1] - _last_paint_uv[1]
                     
-                    # Convert to pixel distance for accurate spacing
-                    dx_px = dx * width
-                    dy_px = dy * height
-                    distance_px = (dx_px*dx_px + dy_px*dy_px) ** 0.5
-                    
-                    if distance_px >= spacing_px:
-                        # Calculate how many dabs fit in this distance
-                        num_dabs = int(distance_px / spacing_px)
-                        
-                        # Paint dabs at regular intervals along the path
-                        for i in range(1, num_dabs + 1):
-                            t = (i * spacing_px) / distance_px  # Exact spacing intervals
-                            interp_uv = (
-                                _last_paint_uv[0] + dx * t,
-                                _last_paint_uv[1] + dy * t
-                            )
-                            paint_at_uv(
-                                _canvas_image,
-                                interp_uv,
-                                brush_radius,
-                                brush_color,
-                                brush_strength,
-                                brush_hardness,
-                                brush_curve,
-                                is_stroke_start=False,
-                                write_to_canvas=(i == num_dabs)  # Only write at end
-                            )
-                            _stroke_paint_count += 1
-                        
-                        # Update last paint position to the last painted dab
-                        final_t = (num_dabs * spacing_px) / distance_px
-                        _last_paint_uv = (
-                            _last_paint_uv[0] + dx * final_t,
-                            _last_paint_uv[1] + dy * final_t
+                    # WRAP-AROUND DETECTION: If UV jumped more than 0.5 in X direction,
+                    # we crossed the texture seam - treat as new stroke start
+                    if abs(dx) > 0.5:
+                        # Crossed the seam! Start fresh at new position
+                        paint_at_uv(
+                            _canvas_image,
+                            uv_coord,
+                            brush_radius,
+                            brush_color,
+                            brush_strength,
+                            brush_hardness,
+                            brush_curve,
+                            is_stroke_start=False,  # Keep stroke buffer
+                            write_to_canvas=True
                         )
+                        _stroke_paint_count += 1
+                        _last_paint_uv = uv_coord
+                        # Skip interpolation - continue to next event
+                    else:
+                        # Normal case - no seam crossing
+                        # Convert to pixel distance for accurate spacing
+                        dx_px = dx * width
+                        dy_px = dy * height
+                        distance_px = (dx_px*dx_px + dy_px*dy_px) ** 0.5
+                        
+                        if distance_px >= spacing_px:
+                            # Calculate how many dabs fit in this distance
+                            num_dabs = int(distance_px / spacing_px)
+                            
+                            # Paint dabs at regular intervals along the path
+                            for i in range(1, num_dabs + 1):
+                                t = (i * spacing_px) / distance_px  # Exact spacing intervals
+                                interp_uv = (
+                                    _last_paint_uv[0] + dx * t,
+                                    _last_paint_uv[1] + dy * t
+                                )
+                                paint_at_uv(
+                                    _canvas_image,
+                                    interp_uv,
+                                    brush_radius,
+                                    brush_color,
+                                    brush_strength,
+                                    brush_hardness,
+                                    brush_curve,
+                                    is_stroke_start=False,
+                                    write_to_canvas=(i == num_dabs)  # Only write at end
+                                )
+                                _stroke_paint_count += 1
+                            
+                            # Update last paint position to the last painted dab
+                            final_t = (num_dabs * spacing_px) / distance_px
+                            _last_paint_uv = (
+                                _last_paint_uv[0] + dx * final_t,
+                                _last_paint_uv[1] + dy * final_t
+                            )
                 
                 # THROTTLED VISUAL UPDATE - every 50ms for smooth feedback without lag
                 current_time = time.time()
@@ -808,6 +870,14 @@ class HDRI_OT_continuous_paint_modal(bpy.types.Operator):
         # ONLY handle events in 3D VIEW - everything else passes through!
         if not context.area or context.area.type != 'VIEW_3D':
             return {'PASS_THROUGH'}
+        
+        # CRITICAL: Check if mouse is in the main viewport region (not over UI)
+        # This allows UI panels (N-panel, T-panel, headers) to work normally
+        if not is_mouse_in_main_region(context, event):
+            # If we were painting, end the stroke
+            if _is_painting and event.type == 'LEFTMOUSE' and event.value == 'RELEASE':
+                _is_painting = False
+            return {'PASS_THROUGH'}  # Let UI handle this event!
         
         # Check if mouse is over the sphere before consuming event
         sphere = bpy.data.objects.get("HDRI_Preview_Sphere")
