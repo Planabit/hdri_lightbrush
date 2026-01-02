@@ -293,12 +293,13 @@ def interpolate_uv(uv_start, uv_end, steps=5):
     return interpolated
 
 
-def paint_at_uv(canvas_image, uv_coord, brush_size, brush_color, brush_strength, brush_hardness, is_stroke_start=False, write_to_canvas=True):
+def paint_at_uv(canvas_image, uv_coord, brush_size, brush_color, brush_strength, brush_hardness, brush_curve=None, is_stroke_start=False, write_to_canvas=True):
     """
-    FULLY VECTORIZED numpy paint with Blender-style falloff curve.
+    FULLY VECTORIZED numpy paint with Blender's actual falloff curve.
     
     Args:
         brush_hardness: 0.0 (soft/smooth falloff) to 1.0 (hard edge)
+        brush_curve: The actual Blender brush.curve CurveMapping for precise falloff
     """
     global _pixel_buffer
     
@@ -331,31 +332,45 @@ def paint_at_uv(canvas_image, uv_coord, brush_size, brush_color, brush_strength,
         if not np.any(mask):
             return True
         
-        # Vectorized alpha calculation with Blender-style falloff
+        # Vectorized alpha calculation using Blender's actual brush curve
         dist = np.sqrt(dist_sq)
+        normalized_dist = dist / brush_size  # 0 at center, 1 at edge
         
-        # Blender falloff curve based on hardness:
-        # hardness = 0.0 -> smooth falloff (soft brush)
-        # hardness = 1.0 -> no falloff (hard brush)
-        if brush_hardness >= 0.99:  # Hard brush (no falloff)
-            falloff = 1.0
-        else:
-            # Normalized distance (0 at center, 1 at edge)
-            normalized_dist = np.clip(dist / brush_size, 0, 1)
+        # Use Blender's brush curve if available
+        if brush_curve is not None:
+            # Sample the curve for each unique distance value
+            # The curve maps: 0.0 (center) -> 1.0, 1.0 (edge) -> 0.0 (typically)
+            falloff = np.zeros_like(dist)
             
-            # Blender's falloff: smooth curve affected by hardness
-            # Higher hardness = steeper falloff at edges
-            # Formula approximates Blender's curve behavior
-            if brush_hardness > 0.5:
-                # Sharp falloff (preserve edge)
-                power = 1.0 + (brush_hardness - 0.5) * 4.0  # 1.0 to 3.0
-                falloff = 1.0 - np.power(normalized_dist, power)
-            else:
-                # Smooth falloff (soft brush)
-                power = 0.4 + brush_hardness  # 0.4 to 0.9
-                falloff = 1.0 - np.power(normalized_dist, power)
+            # Get unique distances to minimize curve evaluations
+            flat_dist = normalized_dist.flatten()
+            flat_falloff = np.zeros_like(flat_dist)
             
+            # Blender curve.evaluate() takes input 0-1 and returns falloff value
+            for i, d in enumerate(flat_dist):
+                if d <= 1.0:
+                    # Blender's curve: input is distance (0=center, 1=edge)
+                    # output is strength multiplier (1=full, 0=none)
+                    flat_falloff[i] = brush_curve.evaluate(brush_curve.curves[0], d)
+                else:
+                    flat_falloff[i] = 0.0
+            
+            falloff = flat_falloff.reshape(normalized_dist.shape)
             falloff = np.clip(falloff, 0, 1)
+        else:
+            # Fallback: simple hardness-based model
+            if brush_hardness >= 0.99:
+                falloff = np.ones_like(dist)
+            else:
+                inner_radius = brush_hardness
+                falloff = np.ones_like(dist)
+                outer_mask = normalized_dist > inner_radius
+                
+                if np.any(outer_mask) and inner_radius < 1.0:
+                    outer_dist = (normalized_dist[outer_mask] - inner_radius) / (1.0 - inner_radius)
+                    falloff[outer_mask] = 1.0 - outer_dist * outer_dist
+                
+                falloff = np.clip(falloff, 0, 1)
         
         alpha = (falloff * brush_strength) * mask
         
@@ -474,15 +489,13 @@ def paint_at_mouse(context, event, is_stroke_start=False, is_stroke_continue=Fal
             uv_coord = get_uv_from_hit_point(_sphere, interior_location)
             
             if uv_coord:
-                # Get Blender brush directly from tool_settings (NOT from bpy.data!)
+                # Get Blender brush directly from tool_settings
                 try:
-                    # Get the LIVE brush reference from scene tool_settings
                     ts = bpy.context.scene.tool_settings
                     ip = ts.image_paint
                     brush = ip.brush
                     
                     if not brush:
-                        print("❌ No active Image Paint brush!")
                         return
                     
                     # Check for unified paint settings (size)
@@ -500,46 +513,85 @@ def paint_at_mouse(context, event, is_stroke_start=False, is_stroke_continue=Fal
                     
                     brush_color = tuple(brush.color[:3])
                     brush_hardness = brush.hardness
+                    brush_curve = brush.curve  # Get the actual falloff curve
                     
-                    # Debug output (only at stroke start)
-                    if is_stroke_start:
-                        unified_info = f"unified_size={ups.use_unified_size}, unified_strength={ups.use_unified_strength}"
-                        print(f"🎨 Brush '{brush.name}': radius={brush_radius}px, strength={brush_strength:.2f}, hardness={brush_hardness:.2f} ({unified_info})")
+                    # Get brush spacing (percentage of radius)
+                    # Default spacing is typically 25% of brush size
+                    brush_spacing = brush.spacing / 100.0  # Convert from percentage
                     
                 except Exception as e:
                     print(f"❌ Failed to get brush settings: {e}")
-                    import traceback
-                    traceback.print_exc()
                     return
                 
-                # Smooth interpolation for connected brush strokes (like Blender Image Paint)
-                uv_coords_to_paint = []
+                # SPACING-BASED painting with INTERPOLATION (like Blender's native brush)
+                # Blender's spacing is percentage of brush DIAMETER
+                # spacing = 25% means dabs are placed 25% of diameter apart
+                width, height = _canvas_image.size
+                
+                # Spacing in pixels: spacing% * diameter
+                brush_diameter = brush_radius * 2
+                spacing_px = brush_spacing * brush_diameter
+                if spacing_px < 1:
+                    spacing_px = 1  # Minimum 1 pixel
+                
+                # Convert to UV space
+                spacing_threshold = spacing_px / max(width, height)
                 
                 if is_stroke_start or _last_paint_uv is None:
-                    uv_coords_to_paint = [uv_coord]
-                    _stroke_paint_count = 0
-                else:
-                    # Interpolate based on distance to get smooth lines
-                    uv_coords_to_paint = interpolate_uv(_last_paint_uv, uv_coord, steps=3)
-                
-                # Paint all interpolated positions
-                for i, uv in enumerate(uv_coords_to_paint):
-                    is_first = (is_stroke_start and i == 0)
-                    is_last = (i == len(uv_coords_to_paint) - 1)
+                    # First dab of stroke
                     paint_at_uv(
                         _canvas_image,
-                        uv,
+                        uv_coord,
                         brush_radius,
                         brush_color,
                         brush_strength,
-                        brush_hardness,  # Pass hardness for falloff curve
-                        is_stroke_start=is_first,
-                        write_to_canvas=is_last  # Only write once at end
+                        brush_hardness,
+                        brush_curve,
+                        is_stroke_start=True,
+                        write_to_canvas=True
                     )
                     _stroke_paint_count += 1
-                
-                # Remember position
-                _last_paint_uv = uv_coord
+                    _last_paint_uv = uv_coord
+                else:
+                    # Calculate distance from last paint position in UV space
+                    dx = uv_coord[0] - _last_paint_uv[0]
+                    dy = uv_coord[1] - _last_paint_uv[1]
+                    
+                    # Convert to pixel distance for accurate spacing
+                    dx_px = dx * width
+                    dy_px = dy * height
+                    distance_px = (dx_px*dx_px + dy_px*dy_px) ** 0.5
+                    
+                    if distance_px >= spacing_px:
+                        # Calculate how many dabs fit in this distance
+                        num_dabs = int(distance_px / spacing_px)
+                        
+                        # Paint dabs at regular intervals along the path
+                        for i in range(1, num_dabs + 1):
+                            t = (i * spacing_px) / distance_px  # Exact spacing intervals
+                            interp_uv = (
+                                _last_paint_uv[0] + dx * t,
+                                _last_paint_uv[1] + dy * t
+                            )
+                            paint_at_uv(
+                                _canvas_image,
+                                interp_uv,
+                                brush_radius,
+                                brush_color,
+                                brush_strength,
+                                brush_hardness,
+                                brush_curve,
+                                is_stroke_start=False,
+                                write_to_canvas=(i == num_dabs)  # Only write at end
+                            )
+                            _stroke_paint_count += 1
+                        
+                        # Update last paint position to the last painted dab
+                        final_t = (num_dabs * spacing_px) / distance_px
+                        _last_paint_uv = (
+                            _last_paint_uv[0] + dx * final_t,
+                            _last_paint_uv[1] + dy * final_t
+                        )
                 
                 # THROTTLED VISUAL UPDATE - every 50ms for smooth feedback without lag
                 current_time = time.time()
