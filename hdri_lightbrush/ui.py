@@ -5,6 +5,7 @@ UI Module - Main HDRI LightBrush Panels
 
 import bpy
 from bpy.types import Panel
+from . import icons
 
 
 class HDRI_PT_main_panel(Panel):
@@ -14,6 +15,13 @@ class HDRI_PT_main_panel(Panel):
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
     bl_category = "HDRI LightBrush"
+    
+    def draw_header(self, context):
+        """Draw custom logo in panel header"""
+        layout = self.layout
+        icon_id = icons.get_icon("logo_small")
+        if icon_id:
+            layout.label(text="", icon_value=icon_id)
     
     def draw(self, context):
         layout = self.layout
@@ -148,17 +156,30 @@ class HDRI_PT_Support(bpy.types.Panel):
     bl_region_type = 'UI'
     bl_category = "HDRI LightBrush"
     bl_options = {'DEFAULT_CLOSED'}
+    
+    def draw_header(self, context):
+        """Draw custom logo in support panel header"""
+        layout = self.layout
+        icon_id = icons.get_icon("logo_small")
+        if icon_id:
+            layout.label(text="", icon_value=icon_id)
 
     def draw(self, context):
         layout = self.layout
+        
+        # Logo banner at top (if available)
+        icon_id = icons.get_icon("logo_full")
+        if icon_id:
+            box = layout.box()
+            box.template_icon(icon_value=icon_id, scale=5.0)
         
         box = layout.box()
         box.label(text="Enjoying HDRI LightBrush?", icon='HEART')
         
         col = box.column(align=True)
-        col.operator("wm.url_open", text="Buy Me a Coffee", icon='URL').url = "https://ko-fi.com/tamaslaszlo"
-        col.operator("wm.url_open", text="Support on Patreon", icon='URL').url = "https://patreon.com/tamaslaszlo"
-        col.operator("wm.url_open", text="GitHub Sponsors", icon='URL').url = "https://github.com/sponsors/tamaslaszlo"
+        col.operator("wm.url_open", text="Buy Me a Coffee", icon='URL').url = "https://ko-fi.com/planabit"
+        col.operator("wm.url_open", text="Support on Patreon", icon='URL').url = "https://patreon.com/planabit"
+        col.operator("wm.url_open", text="GitHub Sponsors", icon='URL').url = "https://github.com/sponsors/Planabit"
         
         box.separator()
         box.label(text="Need custom features?", icon='MODIFIER')

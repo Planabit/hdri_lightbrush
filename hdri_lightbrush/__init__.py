@@ -6,8 +6,8 @@ bl_info = {
     "location": "3D Viewport > Sidebar > HDRI LightBrush",
     "description": "HDRI editor with real-time 3D painting on sphere preview",
     "category": "Lighting",
-    "doc_url": "https://github.com/yourusername/hdri_lightbrush",
-    "tracker_url": "https://github.com/yourusername/hdri_lightbrush/issues",
+    "doc_url": "https://github.com/Planabit/hdri_lightbrush",
+    "tracker_url": "https://github.com/Planabit/hdri_lightbrush/issues",
     "support": "COMMUNITY",
 }
 
@@ -24,8 +24,10 @@ from . import world_operators
 from . import hdri_save
 from . import sphere_tools
 from . import continuous_paint_handler
+from . import icons
 
 modules = [
+    icons,  # Load icons first
     properties,
     operators,
     ui, 

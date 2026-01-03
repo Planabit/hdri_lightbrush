@@ -18,8 +18,8 @@ bl_info = {
     "location": "3D Viewport > Sidebar > HDRI LightBrush",
     "description": "HDRI editor with real-time 3D painting on sphere preview",
     "category": "Lighting",
-    "doc_url": "https://github.com/yourusername/hdri_lightbrush",
-    "tracker_url": "https://github.com/yourusername/hdri_lightbrush/issues",
+    "doc_url": "https://github.com/Planabit/hdri_lightbrush",
+    "tracker_url": "https://github.com/Planabit/hdri_lightbrush/issues",
     "support": "COMMUNITY",
 }
 ```
@@ -87,8 +87,8 @@ Create and edit HDRIs directly in Blender with an intuitive 3D painting workflow
 
 ## Support
 Free and open-source (MIT License)
-- GitHub: [github.com/yourusername/hdri_lightbrush](https://github.com/yourusername/hdri_lightbrush)
-- Support: [ko-fi.com/tamaslaszlo](https://ko-fi.com/tamaslaszlo)
+- GitHub: [github.com/Planabit/hdri_lightbrush](https://github.com/Planabit/hdri_lightbrush)
+- Support: [ko-fi.com/planabit](https://ko-fi.com/planabit)
 ```
 
 **Media:**
@@ -100,10 +100,10 @@ Free and open-source (MIT License)
 - Optional: Add video tutorial link
 
 **Links:**
-- Website: `https://github.com/yourusername/hdri_lightbrush`
-- Documentation: `https://github.com/yourusername/hdri_lightbrush#readme`
-- Issue Tracker: `https://github.com/yourusername/hdri_lightbrush/issues`
-- Support: `https://ko-fi.com/tamaslaszlo` (optional)
+- Website: `https://github.com/Planabit/hdri_lightbrush`
+- Documentation: `https://github.com/Planabit/hdri_lightbrush#readme`
+- Issue Tracker: `https://github.com/Planabit/hdri_lightbrush/issues`
+- Support: `https://ko-fi.com/planabit` (optional)
 
 ### 4. Upload Package
 - Upload `dist/hdri_lightbrush_1.0.0.zip`

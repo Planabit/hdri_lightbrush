@@ -1,6 +1,10 @@
-# HDRI LightBrush v1.0.0
-
-**3D HDRI painting addon for Blender with real-time sphere preview**
+<div align="center">
+  <img src="hdri_lightbrush/img/HDRI lightbrush.png" alt="HDRI LightBrush Logo" width="400"/>
+  
+  # HDRI LightBrush v1.0.0
+  
+  **3D HDRI painting addon for Blender with real-time sphere preview**
+</div>
 
 ## Features
 
@@ -78,9 +82,9 @@ Output: `dist/hdri_lightbrush_....zip`
 HDRI LightBrush is **free and open-source** software. If you find it useful, consider supporting development:
 
 ### ☕ Support via Donations
-- **Ko-fi**: [ko-fi.com/tamaslaszlo](https://ko-fi.com/tamaslaszlo) - One-time donations
-- **Patreon**: [patreon.com/tamaslaszlo](https://patreon.com/tamaslaszlo) - Monthly support & early access
-- **GitHub Sponsors**: [github.com/sponsors/tamaslaszlo](https://github.com/sponsors/tamaslaszlo) - Support development
+- **Ko-fi**: [ko-fi.com/planabit](https://ko-fi.com/planabit) - One-time donations
+- **Patreon**: [patreon.com/planabit](https://patreon.com/planabit) - Monthly support & early access
+- **GitHub Sponsors**: [github.com/sponsors/Planabit](https://github.com/sponsors/Planabit) - Support development
 
 ### 🚀 Custom Development
 Need additional features or custom modifications?
@@ -90,9 +94,9 @@ Need additional features or custom modifications?
 - **Priority Support**: Available for Patreon supporters
 
 ### 📣 Roadmap & Feature Voting
-- Check the [GitHub Issues](https://github.com/yourusername/hdri_lightbrush/issues) for planned features
+- Check the [GitHub Issues](https://github.com/Planabit/hdri_lightbrush/issues) for planned features
 - Vote with 👍 on features you'd like to see prioritized
-- Suggest new features in [Discussions](https://github.com/yourusername/hdri_lightbrush/discussions)
+- Suggest new features in [Discussions](https://github.com/Planabit/hdri_lightbrush/discussions)
 
 ## License
 
