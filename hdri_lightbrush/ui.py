@@ -178,8 +178,7 @@ class HDRI_PT_Support(bpy.types.Panel):
         
         col = box.column(align=True)
         col.operator("wm.url_open", text="Buy Me a Coffee", icon='URL').url = "https://ko-fi.com/tamaslaszlo"
-        col.operator("wm.url_open", text="Support on Patreon", icon='URL').url = "https://patreon.com/planabit"
-        col.operator("wm.url_open", text="GitHub Sponsors", icon='URL').url = "https://github.com/sponsors/Planabit"
+        col.operator("wm.url_open", text="Support on Patreon", icon='URL').url = "https://patreon.com/TamasLaszlo"
         
         box.separator()
         box.label(text="Need custom features?", icon='MODIFIER')

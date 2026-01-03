@@ -83,8 +83,7 @@ HDRI LightBrush is **free and open-source** software. If you find it useful, con
 
 ### ☕ Support via Donations
 - **Ko-fi**: [ko-fi.com/tamaslaszlo](https://ko-fi.com/tamaslaszlo) - One-time donations
-- **Patreon**: [patreon.com/planabit](https://patreon.com/planabit) - Monthly support & early access
-- **GitHub Sponsors**: [github.com/sponsors/Planabit](https://github.com/sponsors/Planabit) - Support development
+- **Patreon**: [patreon.com/TamasLaszlo](https://patreon.com/TamasLaszlo) - Monthly support & early access
 
 ### 🚀 Custom Development
 Need additional features or custom modifications?

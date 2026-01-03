@@ -33,8 +33,7 @@ Have an idea? [Create a discussion](https://github.com/Planabit/hdri_lightbrush/
 ### 💰 Financial Support
 Support development through:
 - [Ko-fi](https://ko-fi.com/tamaslaszlo) - One-time donations
-- [Patreon](https://patreon.com/planabit) - Monthly support
-- [GitHub Sponsors](https://github.com/sponsors/Planabit)
+- [Patreon](https://patreon.com/TamasLaszlo) - Monthly support
 
 ## Development Setup
 

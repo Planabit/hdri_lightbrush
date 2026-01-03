@@ -45,8 +45,7 @@ jobs:
           
           ### Support Development
           - ☕ [Ko-fi](https://ko-fi.com/tamaslaszlo)
-          - 🎨 [Patreon](https://patreon.com/planabit)
-          - 💜 [GitHub Sponsors](https://github.com/sponsors/Planabit)
+          - 🎨 [Patreon](https://patreon.com/TamasLaszlo)
         draft: false
         prerelease: false
       env:
