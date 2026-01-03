@@ -88,7 +88,7 @@ Create and edit HDRIs directly in Blender with an intuitive 3D painting workflow
 ## Support
 Free and open-source (MIT License)
 - GitHub: [github.com/Planabit/hdri_lightbrush](https://github.com/Planabit/hdri_lightbrush)
-- Support: [ko-fi.com/planabit](https://ko-fi.com/planabit)
+- Support: [ko-fi.com/tamaslaszlo](https://ko-fi.com/tamaslaszlo)
 ```
 
 **Media:**
@@ -103,7 +103,7 @@ Free and open-source (MIT License)
 - Website: `https://github.com/Planabit/hdri_lightbrush`
 - Documentation: `https://github.com/Planabit/hdri_lightbrush#readme`
 - Issue Tracker: `https://github.com/Planabit/hdri_lightbrush/issues`
-- Support: `https://ko-fi.com/planabit` (optional)
+- Support: `https://ko-fi.com/tamaslaszlo` (optional)
 
 ### 4. Upload Package
 - Upload `dist/hdri_lightbrush_1.0.0.zip`

@@ -82,7 +82,7 @@ Output: `dist/hdri_lightbrush_....zip`
 HDRI LightBrush is **free and open-source** software. If you find it useful, consider supporting development:
 
 ### ☕ Support via Donations
-- **Ko-fi**: [ko-fi.com/planabit](https://ko-fi.com/planabit) - One-time donations
+- **Ko-fi**: [ko-fi.com/tamaslaszlo](https://ko-fi.com/tamaslaszlo) - One-time donations
 - **Patreon**: [patreon.com/planabit](https://patreon.com/planabit) - Monthly support & early access
 - **GitHub Sponsors**: [github.com/sponsors/Planabit](https://github.com/sponsors/Planabit) - Support development
 
