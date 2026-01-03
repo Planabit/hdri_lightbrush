@@ -3,24 +3,30 @@
   
   # HDRI LightBrush v1.0.0
   
-  **3D HDRI painting addon for Blender with real-time sphere preview**
+  **Professional HDRI environment lighting editor for Blender**
+  
+  Paint directly on the inner surface of a world-representing sphere in 3D viewport for precise lighting control. Perfect for creating and fine-tuning studio lighting setups.
 </div>
 
 ## Features
 
-- **3D Paint on Sphere**: Paint directly on a preview sphere in the 3D viewport
-- **Real-time Preview**: See HDRI changes instantly on the sphere surface  
-- **Blender Brush Integration**: Uses native Blender brushes (radius, strength, falloff)
-- **Spacing-based Painting**: Matches Blender's native paint behavior
-- **Stroke Buffer**: No paint accumulation within strokes
-- **World Background**: Apply painted HDRI as world environment
+### Core Concept
+HDRI LightBrush revolutionizes environment lighting workflow by allowing you to **paint directly on the inner surface of a sphere that represents your world environment**. This intuitive approach provides unprecedented precision for creating and fine-tuning studio lighting setups.
 
-## Core Functionality
-- **Real-time 2D Canvas**: Interactive HDRI painting with instant feedback
-- **Empty Canvas Creation**: Generate 2K (2048x1024) and 4K (4096x2048) HDRI canvases
-- **Custom Canvas Sizes**: Create canvases with user-defined dimensions
-- **HDRI Loading**: Load existing HDRI files (.exr, .hdr, .jpg, .png)
-- **Panel-embedded Display**: View and edit HDRI directly within Blender panels
+### Key Features
+- **Direct 3D Painting**: Paint on the world-representing sphere's inner surface in real-time
+- **Precision Lighting Control**: Fine-tune individual light sources and highlights with pixel-perfect accuracy
+- **Studio Lighting Workflow**: Create professional studio setups from scratch or modify existing HDRIs
+- **Real-time Preview**: See environment changes instantly reflected on the sphere surface
+- **Blender Brush Integration**: Full support for native Blender brushes (radius, strength, falloff, spacing)
+- **World Environment Sync**: Apply painted HDRI directly as world background
+
+## Technical Capabilities
+- **Canvas Creation**: Generate 2K (2048x1024) and 4K (4096x2048) HDRI canvases
+- **Custom Resolutions**: Create canvases with user-defined dimensions
+- **HDRI Loading**: Import existing HDRI files (.exr, .hdr, .jpg, .png) for editing
+- **Professional Export**: Save edited HDRIs in industry-standard formats
+- **Integrated Workflow**: Edit HDRI directly within Blender panels alongside your 3D scene
 
 ## Requirements
 

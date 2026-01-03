@@ -63,21 +63,34 @@ python tools/build_and_install_hdri_lightbrush.py
 
 **Basic Info:**
 - Name: `HDRI LightBrush`
-- Tagline: `Paint HDRIs in 3D with real-time sphere preview`
+- Tagline: `Professional HDRI environment editor - Paint on world sphere for precise studio lighting`
 - Category: `Lighting`
-- Tags: `hdri`, `painting`, `lighting`, `environment`, `texture`
+- Tags: `hdri`, `lighting`, `environment`, `studio`, `painting`
 
 **Description:**
 ```markdown
-Create and edit HDRIs directly in Blender with an intuitive 3D painting workflow.
+Professional HDRI environment lighting editor. Paint directly on the inner surface of a world-representing sphere for unprecedented precision in lighting control.
 
-## Features
-- 🎨 Real-time 3D painting on sphere preview
-- 🖌️ Native Blender brush system integration
-- 📐 2K/4K canvas support
-- 💾 HDRI export (.exr, .hdr, .jpg, .png)
-- 🌍 World environment integration
-- 🌡️ Color temperature control (Kelvin to RGB)
+## Perfect For
+- Creating custom studio lighting setups from scratch
+- Fine-tuning existing HDRI environments  
+- Precise control over individual light sources and highlights
+- Professional product visualization and rendering workflows
+
+## Key Features
+- 🎨 Direct 3D painting on sphere inner surface (world representation)
+- ⚡ Real-time environment updates with live preview
+- 🖌️ Full Blender brush system integration
+- 📐 2K/4K canvas support with custom resolutions
+- 💾 Professional HDRI export (.exr, .hdr, .jpg, .png)
+- 🔄 Intuitive 3-step workflow: Canvas → Sphere → World
+
+## Use Cases
+- Product photography lighting simulation
+- Architectural visualization
+- Character/vehicle studio renders
+- Custom environment map creation
+- HDRI touch-up and enhancement
 
 ## Quick Start
 1. Open 3D Viewport sidebar (N key)

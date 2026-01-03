@@ -4,7 +4,7 @@ bl_info = {
     "version": (1, 0, 0),
     "blender": (4, 2, 0),
     "location": "3D Viewport > Sidebar > HDRI LightBrush",
-    "description": "HDRI editor with real-time 3D painting on sphere preview",
+    "description": "Professional HDRI environment editor - Paint directly on world-representing sphere for precise studio lighting control",
     "category": "Lighting",
     "doc_url": "https://github.com/Planabit/hdri_lightbrush",
     "tracker_url": "https://github.com/Planabit/hdri_lightbrush/issues",
