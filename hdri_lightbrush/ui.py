@@ -187,7 +187,7 @@ class HDRI_PT_Support(bpy.types.Panel):
         box.separator()
         col = box.column(align=True)
         col.scale_y = 0.8
-        col.label(text="Free & Open Source - MIT License", icon='INFO')
+        col.label(text="Free & Open Source - GPL-3.0-or-later", icon='INFO')
 
 
 classes = [

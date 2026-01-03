@@ -101,7 +101,7 @@ Professional HDRI environment lighting editor. Paint directly on the inner surfa
 **Video Tutorial:** https://youtu.be/Zq61VZGpruA
 
 ## Support
-Free and open-source (MIT License)
+Free and open-source (GNU GPL-3.0-or-later)
 - GitHub: [github.com/Planabit/hdri_lightbrush](https://github.com/Planabit/hdri_lightbrush)
 - Support: [ko-fi.com/tamaslaszlo](https://ko-fi.com/tamaslaszlo)
 ```

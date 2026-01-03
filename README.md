@@ -119,6 +119,6 @@ Need additional features or custom modifications?
 
 ## License
 
-MIT License - See [LICENSE](LICENSE) file for details
+GNU GPL-3.0-or-later - See [LICENSE](LICENSE) file for details
 
 
