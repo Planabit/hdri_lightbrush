@@ -28,8 +28,7 @@ jobs:
     - name: Create addon zip
       run: |
         mkdir -p dist
-        cd hdri_lightbrush
-        zip -r ../dist/hdri_lightbrush_${{ steps.get_version.outputs.VERSION }}.zip . -x "*/\.*" "*/__pycache__/*" "*.pyc"
+        zip -r dist/hdri_lightbrush_${{ steps.get_version.outputs.VERSION }}.zip hdri_lightbrush -x "*/\.*" "*/__pycache__/*" "*.pyc"
     
     - name: Create Release
       uses: softprops/action-gh-release@v1
