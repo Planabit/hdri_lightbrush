@@ -6,7 +6,11 @@
   **Professional HDRI environment lighting editor for Blender**
   
   Paint directly on the inner surface of a world-representing sphere in 3D viewport for precise lighting control. Perfect for creating and fine-tuning studio lighting setups.
+  
+  [![Watch Demo](https://img.shields.io/badge/▶️_Watch_Demo-YouTube-red?style=for-the-badge&logo=youtube)](https://youtu.be/Zq61VZGpruA)
 </div>
+
+---
 
 ## Features
 
@@ -27,6 +31,16 @@ HDRI LightBrush revolutionizes environment lighting workflow by allowing you to 
 - **HDRI Loading**: Import existing HDRI files (.exr, .hdr, .jpg, .png) for editing
 - **Professional Export**: Save edited HDRIs in industry-standard formats
 - **Integrated Workflow**: Edit HDRI directly within Blender panels alongside your 3D scene
+
+## 🎬 Video Tutorial
+
+<div align="center">
+  <a href="https://youtu.be/Zq61VZGpruA">
+    <img src="https://img.youtube.com/vi/Zq61VZGpruA/maxresdefault.jpg" alt="HDRI LightBrush Tutorial" width="600"/>
+  </a>
+  
+  **[▶️ Watch Full Tutorial on YouTube](https://youtu.be/Zq61VZGpruA)**
+</div>
 
 ## Requirements
 

@@ -1,0 +1,18 @@
+schema_version = "1.0.0"
+
+id = "hdri_lightbrush"
+name = "HDRI LightBrush"
+tagline = "Professional HDRI environment editor - Paint on world sphere for precise studio lighting"
+version = "1.0.0"
+type = "add-on"
+
+maintainer = "Tamas Laszlo <planabit@gmail.com>"
+license = ["SPDX:MIT"]
+blender_version_min = "4.2.0"
+
+website = "https://github.com/Planabit/hdri_lightbrush"
+
+tags = ["Lighting", "Environment", "HDRI", "Studio", "Paint"]
+
+[permissions]
+files = "Import/export HDRI files (.exr, .hdr, .jpg, .png)"

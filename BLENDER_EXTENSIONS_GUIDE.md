@@ -98,6 +98,8 @@ Professional HDRI environment lighting editor. Paint directly on the inner surfa
 3. Click "New Canvas" (2K or 4K)
 4. Start painting with your favorite brushes!
 
+**Video Tutorial:** https://youtu.be/Zq61VZGpruA
+
 ## Support
 Free and open-source (MIT License)
 - GitHub: [github.com/Planabit/hdri_lightbrush](https://github.com/Planabit/hdri_lightbrush)
