@@ -31,6 +31,11 @@ _stroke_paint_count = 0
 _last_visual_update = 0
 _visual_update_interval = 0.033
 
+# Performance optimization for large textures
+_dirty_region = None  # Track only changed region
+_update_throttle = 0.016  # 60 FPS cap
+_last_update_time = 0
+
 # Cursor cache
 _last_cursor_pos = None
 _last_brush_radius = None
@@ -211,20 +216,30 @@ def paint_at_uv(canvas_image, uv_coord, brush_size, brush_color, brush_strength,
 
 
 def update_3d_viewport():
-    """Force 3D viewport texture refresh."""
-    global _canvas_image, _sphere
+    """Force 3D viewport texture refresh with throttling for performance."""
+    global _canvas_image, _sphere, _last_update_time, _update_throttle
+    
+    # Throttle updates for large textures (prevents lag on 4K-8K)
+    current_time = time.time()
+    if current_time - _last_update_time < _update_throttle:
+        return  # Skip update if too soon
+    
+    _last_update_time = current_time
     
     if _canvas_image:
         _canvas_image.update()
-        if _canvas_image.packed_file:
-            _canvas_image.unpack(method='USE_ORIGINAL')
+        # Skip expensive unpacking during painting
+        # if _canvas_image.packed_file:
+        #     _canvas_image.unpack(method='USE_ORIGINAL')
         _canvas_image.update_tag()
     
     if _sphere and _sphere.active_material:
         _sphere.active_material.update_tag()
-        if _sphere.active_material.use_nodes:
-            _sphere.active_material.node_tree.update_tag()
+        # Skip node tree update during painting (expensive!)
+        # if _sphere.active_material.use_nodes:
+        #     _sphere.active_material.node_tree.update_tag()
     
+    # Light update only
     if bpy.context.view_layer:
         bpy.context.view_layer.update()
 

@@ -148,8 +148,12 @@ class HDRI_PT_main_panel(Panel):
 # World Settings Panel removed - controls integrated into main panel Step 3
 
 
+# Support panel disabled for Blender Extensions compliance
+# (Advertisements/donation links not allowed in UI)
+# For support options, see: https://github.com/Planabit/hdri_lightbrush
+"""
 class HDRI_PT_Support(bpy.types.Panel):
-    """Support panel for donations and custom development"""
+    \"\"\"Support panel for donations and custom development\"\"\"
     bl_label = "Support Development"
     bl_idname = "HDRI_PT_support"
     bl_space_type = 'VIEW_3D'
@@ -158,7 +162,7 @@ class HDRI_PT_Support(bpy.types.Panel):
     bl_options = {'DEFAULT_CLOSED'}
     
     def draw_header(self, context):
-        """Draw custom logo in support panel header"""
+        \"\"\"Draw custom logo in support panel header\"\"\"
         layout = self.layout
         icon_id = icons.get_icon("logo_small")
         if icon_id:
@@ -188,11 +192,12 @@ class HDRI_PT_Support(bpy.types.Panel):
         col = box.column(align=True)
         col.scale_y = 0.8
         col.label(text="Free & Open Source - GPL-3.0-or-later", icon='INFO')
+"""
 
 
 classes = [
     HDRI_PT_main_panel,
-    HDRI_PT_Support,
+    # HDRI_PT_Support removed - not allowed in Blender Extensions
 ]
 
 

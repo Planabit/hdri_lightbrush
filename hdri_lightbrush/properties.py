@@ -78,6 +78,24 @@ class HDRIStudioProperties(PropertyGroup):
         max=500.0
     )
     
+    # Performance optimization for 4K-8K textures
+    performance_mode: BoolProperty(
+        name="Performance Mode",
+        description="Enable optimizations for 4K-8K HDRI painting (reduces real-time updates)",
+        default=False
+    )
+    
+    update_rate: EnumProperty(
+        name="Update Rate",
+        description="How often to update 3D preview while painting",
+        items=[
+            ('REALTIME', "Real-time (30 FPS)", "Update every frame - smooth but slower on large textures"),
+            ('FAST', "Fast (15 FPS)", "Good balance for 4K textures"),
+            ('RESPONSIVE', "Responsive (10 FPS)", "Better performance for 8K textures"),
+        ],
+        default='FAST'
+    )
+    
     light_intensity: FloatProperty(
         name="Light Intensity",
         description="Intensity of the light source", 
