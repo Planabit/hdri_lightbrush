@@ -143,6 +143,28 @@ class HDRI_PT_main_panel(Panel):
                 
                 row = step3_box.row()
                 row.prop(world_props, "background_rotation", text="Rotation", slider=True)
+        
+        # ═══════════════════════════════════════════════════════
+        # PERFORMANCE SETTINGS (for 4K-8K textures)
+        # ═══════════════════════════════════════════════════════
+        if has_canvas:
+            perf_box = layout.box()
+            perf_header = perf_box.row()
+            perf_header.label(text="Performance", icon='PREFERENCES')
+            
+            # Auto-suggest performance mode for large textures
+            canvas_image = bpy.data.images.get("HDRI_Canvas")
+            if canvas_image and canvas_image.size[0] >= 4096:
+                row = perf_box.row()
+                row.alert = not props.performance_mode
+                row.prop(props, "performance_mode", text="Enable for 4K+ Textures")
+            else:
+                row = perf_box.row()
+                row.prop(props, "performance_mode", text="Performance Mode")
+            
+            if props.performance_mode or (canvas_image and canvas_image.size[0] >= 4096):
+                row = perf_box.row()
+                row.prop(props, "update_rate", text="Update Rate")
 
 
 # World Settings Panel removed - controls integrated into main panel Step 3
