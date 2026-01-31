@@ -81,7 +81,9 @@ def create_painting_sphere_material(obj, canvas_image=None):
     mat.use_nodes = True
     mat.use_backface_culling = False
     mat.blend_method = 'HASHED'
-    mat.shadow_method = 'NONE'
+    # Only set shadow_method if it exists (Blender <4.3)
+    if hasattr(mat, "shadow_method"):
+        mat.shadow_method = 'NONE'
     mat.show_transparent_back = True
     obj.data.materials.append(mat)
     
