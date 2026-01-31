@@ -1,9 +1,9 @@
 <div align="center">
   <img src="hdri_lightbrush/img/HDRI lightbrush.png" alt="HDRI LightBrush Logo" width="400"/>
   
-  # HDRI LightBrush v1.0.0
+  # HDRI LightBrush v1.2.0
   
-  **Professional HDRI environment lighting editor for Blender**
+  **Professional HDRI environment lighting editor for Blender 4.2 & 5.0**
   
   Paint directly on the inner surface of a world-representing sphere in 3D viewport for precise lighting control. Perfect for creating and fine-tuning studio lighting setups.
   
@@ -20,9 +20,11 @@ HDRI LightBrush revolutionizes environment lighting workflow by allowing you to 
 ### Key Features
 - **Direct 3D Painting**: Paint on the world-representing sphere's inner surface in real-time
 - **Precision Lighting Control**: Fine-tune individual light sources and highlights with pixel-perfect accuracy
+- **Built-in Brush Panel**: Complete brush settings (color, size, strength, hardness, blend modes) directly in 3D viewport
+- **Blend Modes**: Mix, Add, Multiply, Lighten, Darken, and Erase modes for creative control
 - **Studio Lighting Workflow**: Create professional studio setups from scratch or modify existing HDRIs
 - **Real-time Preview**: See environment changes instantly reflected on the sphere surface
-- **Blender Brush Integration**: Full support for native Blender brushes (radius, strength, falloff, spacing)
+- **Blender 4.2 & 5.0 Support**: Full compatibility with both Blender versions
 - **World Environment Sync**: Apply painted HDRI directly as world background
 
 ## Technical Capabilities
@@ -44,7 +46,7 @@ HDRI LightBrush revolutionizes environment lighting workflow by allowing you to 
 
 ## Requirements
 
-- Blender 4.2+
+- Blender 4.2+ or Blender 5.0+
 - Python 3.11+ (bundled with Blender)
 
 ## Installation 
@@ -61,8 +63,8 @@ HDRI LightBrush revolutionizes environment lighting workflow by allowing you to 
 3. Click "New Canvas" to create 2K or 4K HDRI
 4. Click "Add Sphere" to create preview sphere
 5. Click "Set Background" to apply to world
-6. Paint on the sphere with left mouse button
-7. Configure brush in Image Editor sidebar (Radius, Strength, Hardness)
+6. **Configure brush** in the Brush Settings panel (Color, Size, Strength, Hardness, Blend Mode)
+7. Paint on the sphere with left mouse button
 
 ## Modules
 
