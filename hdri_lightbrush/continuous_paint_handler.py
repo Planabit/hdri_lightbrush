@@ -64,18 +64,24 @@ def srgb_to_linear(color):
 
 def find_interior_surface(sphere, ray_origin, ray_direction):
     """Find the interior (far) surface of the sphere from camera view."""
-    matrix_inv = sphere.matrix_world.inverted()
+    # Ensure mesh is up to date for raycasting
+    depsgraph = bpy.context.evaluated_depsgraph_get()
+    sphere_eval = sphere.evaluated_get(depsgraph)
+    
+    matrix_inv = sphere_eval.matrix_world.inverted()
     ray_origin_local = matrix_inv @ ray_origin
     ray_direction_local = matrix_inv.to_3x3() @ ray_direction
     ray_direction_local.normalize()
     
-    success1, location1, normal1, face_index1 = sphere.ray_cast(ray_origin_local, ray_direction_local)
+    # Use evaluated mesh for ray_cast
+    success1, location1, normal1, face_index1 = sphere_eval.ray_cast(ray_origin_local, ray_direction_local)
+    
     if not success1:
         return None, None, None
     
     # Find second (far) surface
     new_origin = location1 + ray_direction_local * 0.001
-    success2, location2, normal2, face_index2 = sphere.ray_cast(new_origin, ray_direction_local)
+    success2, location2, normal2, face_index2 = sphere_eval.ray_cast(new_origin, ray_direction_local)
     
     if success2:
         return sphere.matrix_world @ location2, face_index2, location2
@@ -135,7 +141,8 @@ def get_uv_from_hit_point(sphere, hit_point_world):
 # =============================================================================
 
 def paint_at_uv(canvas_image, uv_coord, brush_size, brush_color, brush_strength, 
-                brush_hardness, brush_curve=None, is_stroke_start=False, write_to_canvas=True):
+                brush_hardness, brush_curve=None, is_stroke_start=False, write_to_canvas=True,
+                blend_mode='MIX'):
     """Paint at UV coordinate using Blender's brush curve for falloff."""
     global _pixel_buffer, _stroke_base_pixels, _stroke_alpha_buffer
     
@@ -195,7 +202,7 @@ def paint_at_uv(canvas_image, uv_coord, brush_size, brush_color, brush_strength,
         alpha_region = _stroke_alpha_buffer[y_min:y_max, x_min:x_max]
         np.maximum(alpha_region, dab_alpha, out=alpha_region)
         
-        # Blend colors
+        # Blend colors based on blend mode
         base_2d = _stroke_base_pixels.reshape((height, width, 4))
         pixels_2d = _pixel_buffer.reshape((height, width, 4))
         
@@ -204,7 +211,33 @@ def paint_at_uv(canvas_image, uv_coord, brush_size, brush_color, brush_strength,
         
         alpha_3d = alpha_region[:, :, np.newaxis]
         brush_rgb = np.array(srgb_to_linear(brush_color), dtype=np.float32)
-        region[:] = base_region * (1.0 - alpha_3d) + brush_rgb * alpha_3d
+        
+        # Apply different blend modes
+        if blend_mode == 'MIX':
+            # Normal blend - replaces color
+            blended = brush_rgb
+        elif blend_mode == 'ADD':
+            # Add - brightens
+            blended = base_region + brush_rgb
+        elif blend_mode == 'MULTIPLY':
+            # Multiply - darkens
+            blended = base_region * brush_rgb
+        elif blend_mode == 'LIGHTEN':
+            # Lighten - only lightens pixels
+            blended = np.maximum(base_region, brush_rgb)
+        elif blend_mode == 'DARKEN':
+            # Darken - only darkens pixels
+            blended = np.minimum(base_region, brush_rgb)
+        elif blend_mode == 'ERASE':
+            # Erase to black
+            blended = np.zeros_like(brush_rgb)
+        else:
+            blended = brush_rgb
+        
+        region[:] = base_region * (1.0 - alpha_3d) + blended * alpha_3d
+        
+        # Clamp values
+        np.clip(region, 0.0, None, out=region)  # Allow HDR values > 1.0
         
         if write_to_canvas:
             canvas_image.pixels.foreach_set(_pixel_buffer)
@@ -227,21 +260,26 @@ def update_3d_viewport():
     _last_update_time = current_time
     
     if _canvas_image:
+        # Force GPU texture update - critical for Blender 5.0
         _canvas_image.update()
-        # Skip expensive unpacking during painting
-        # if _canvas_image.packed_file:
-        #     _canvas_image.unpack(method='USE_ORIGINAL')
-        _canvas_image.update_tag()
+        _canvas_image.gl_free()  # Free old GPU texture
+        _canvas_image.gl_load()  # Reload to GPU
     
     if _sphere and _sphere.active_material:
         _sphere.active_material.update_tag()
-        # Skip node tree update during painting (expensive!)
-        # if _sphere.active_material.use_nodes:
-        #     _sphere.active_material.node_tree.update_tag()
+        # Force node tree update for texture refresh
+        if _sphere.active_material.use_nodes:
+            _sphere.active_material.node_tree.update_tag()
     
-    # Light update only
+    # Force depsgraph update
     if bpy.context.view_layer:
         bpy.context.view_layer.update()
+    
+    # Tag all 3D viewports for redraw
+    for window in bpy.context.window_manager.windows:
+        for area in window.screen.areas:
+            if area.type == 'VIEW_3D':
+                area.tag_redraw()
 
 
 # =============================================================================
@@ -317,28 +355,50 @@ def paint_at_mouse(context, event, is_stroke_start=False, is_stroke_continue=Fal
             uv_coord = get_uv_from_hit_point(_sphere, interior_location)
             
             if uv_coord:
-                # Get brush settings
-                ts = bpy.context.scene.tool_settings
-                ip = ts.image_paint
-                brush = ip.brush
-                if not brush:
+                try:
+                    ts = bpy.context.scene.tool_settings
+                except Exception:
                     return
                 
-                ups = ts.unified_paint_settings
-                brush_radius = int(ups.size if ups.use_unified_size else brush.size)
-                brush_strength = ups.strength if ups.use_unified_strength else brush.strength
-                brush_color = tuple(brush.color[:3])
-                brush_hardness = brush.hardness
-                brush_curve = brush.curve
-                brush_spacing = brush.spacing / 100.0
+                # Get brush settings from our addon properties (Blender 5.0 compatible)
+                props = bpy.context.scene.hdri_studio
+                
+                # Read our custom brush settings
+                brush_color = tuple(props.paint_color[:3])
+                brush_radius = props.paint_size
+                brush_strength = props.paint_strength
+                brush_hardness = props.paint_hardness
+                blend_mode = props.paint_blend
+                
+                # Get brush reference for curve/spacing (optional)
+                brush = None
+                brush_curve = None
+                brush_spacing = 0.25  # Default 25%
+                try:
+                    if ts.image_paint and ts.image_paint.brush:
+                        brush = ts.image_paint.brush
+                        # Blender 5.0+: brush.curve renamed to brush.curve_distance_falloff
+                        try:
+                            if hasattr(brush, 'curve_distance_falloff'):
+                                brush_curve = brush.curve_distance_falloff
+                            elif hasattr(brush, 'curve'):
+                                brush_curve = brush.curve
+                        except:
+                            pass
+                        brush_spacing = getattr(brush, 'spacing', 25) / 100.0
+                except:
+                    pass
                 
                 width, height = _canvas_image.size
                 spacing_px = max(1, brush_spacing * brush_radius * 2)
                 
                 if is_stroke_start or _last_paint_uv is None:
-                    paint_at_uv(_canvas_image, uv_coord, brush_radius, brush_color,
-                               brush_strength, brush_hardness, brush_curve,
-                               is_stroke_start=True, write_to_canvas=True)
+                    try:
+                        paint_at_uv(_canvas_image, uv_coord, brush_radius, brush_color,
+                                   brush_strength, brush_hardness, brush_curve,
+                                   is_stroke_start=True, write_to_canvas=True, blend_mode=blend_mode)
+                    except Exception:
+                        pass
                     _stroke_paint_count += 1
                     _last_paint_uv = uv_coord
                 else:
@@ -349,7 +409,7 @@ def paint_at_mouse(context, event, is_stroke_start=False, is_stroke_continue=Fal
                     if abs(dx) > 0.5:
                         paint_at_uv(_canvas_image, uv_coord, brush_radius, brush_color,
                                    brush_strength, brush_hardness, brush_curve,
-                                   is_stroke_start=False, write_to_canvas=True)
+                                   is_stroke_start=False, write_to_canvas=True, blend_mode=blend_mode)
                         _stroke_paint_count += 1
                         _last_paint_uv = uv_coord
                     else:
@@ -364,7 +424,7 @@ def paint_at_mouse(context, event, is_stroke_start=False, is_stroke_continue=Fal
                                 interp_uv = (_last_paint_uv[0] + dx * t, _last_paint_uv[1] + dy * t)
                                 paint_at_uv(_canvas_image, interp_uv, brush_radius, brush_color,
                                            brush_strength, brush_hardness, brush_curve,
-                                           is_stroke_start=False, write_to_canvas=(i == num_dabs))
+                                           is_stroke_start=False, write_to_canvas=(i == num_dabs), blend_mode=blend_mode)
                                 _stroke_paint_count += 1
                             
                             final_t = (num_dabs * spacing_px) / distance_px
@@ -401,9 +461,9 @@ def draw_handler_callback():
     # Get brush radius
     try:
         ts = bpy.context.scene.tool_settings
-        ups = ts.unified_paint_settings
-        brush = ts.image_paint.brush
-        brush_radius_px = int(ups.size if ups.use_unified_size else brush.size) if brush else 50
+        brush = ts.image_paint.brush if ts.image_paint else None
+        # Blender 5.0: no unified_paint_settings - use brush.size directly
+        brush_radius_px = int(brush.size) if brush else 50
     except:
         brush_radius_px = 50
     
@@ -419,7 +479,12 @@ def draw_handler_callback():
             angle = 2 * math.pi * i / segments
             vertices.append((cx + brush_radius_px * math.cos(angle), cy + brush_radius_px * math.sin(angle)))
         
-        _cursor_shader = gpu.shader.from_builtin('UNIFORM_COLOR')
+        # Blender 5.0+: shader names changed
+        try:
+            _cursor_shader = gpu.shader.from_builtin('UNIFORM_COLOR')
+        except ValueError:
+            # Blender 5.0+ uses '2D_UNIFORM_COLOR'
+            _cursor_shader = gpu.shader.from_builtin('2D_UNIFORM_COLOR')
         _cursor_batch = batch_for_shader(_cursor_shader, 'LINE_STRIP', {"pos": vertices})
     
     # Draw
@@ -502,23 +567,32 @@ class HDRI_OT_continuous_paint_modal(bpy.types.Operator):
     """Modal operator for event capture"""
     bl_idname = "hdri_studio.continuous_paint_modal"
     bl_label = "Continuous Paint Modal"
+    bl_options = {'REGISTER', 'UNDO'}
     
     _timer = None
     
     def modal(self, context, event):
-        global _paint_handler_active, _is_painting
+        global _paint_handler_active, _is_painting, _last_mouse_pos
         
         if not _paint_handler_active:
             self.cancel(context)
             return {'CANCELLED'}
         
         if event.type == 'TIMER':
+            # Force redraw for cursor update
+            for area in context.screen.areas:
+                if area.type == 'VIEW_3D':
+                    area.tag_redraw()
             return {'PASS_THROUGH'}
         
         if event.type == 'ESC' and event.value == 'PRESS':
             self.cancel(context)
             disable_continuous_paint()
             return {'CANCELLED'}
+        
+        # Update mouse position for cursor drawing
+        if event.type == 'MOUSEMOVE':
+            _last_mouse_pos = (event.mouse_region_x, event.mouse_region_y)
         
         if not context.area or context.area.type != 'VIEW_3D':
             return {'PASS_THROUGH'}
@@ -532,41 +606,55 @@ class HDRI_OT_continuous_paint_modal(bpy.types.Operator):
         if not sphere:
             return {'PASS_THROUGH'}
         
-        if event.type == 'LEFTMOUSE' and event.value == 'PRESS':
-            region = context.region
-            region_3d = context.space_data.region_3d
-            mouse_coord = (event.mouse_region_x, event.mouse_region_y)
+        # Handle painting events
+        if event.type == 'LEFTMOUSE':
+            if event.value == 'PRESS':
+                region = context.region
+                region_3d = context.space_data.region_3d
+                mouse_coord = (event.mouse_region_x, event.mouse_region_y)
+                
+                ray_origin = view3d_utils.region_2d_to_origin_3d(region, region_3d, mouse_coord)
+                ray_direction = view3d_utils.region_2d_to_vector_3d(region, region_3d, mouse_coord)
+                location, _, _ = find_interior_surface(sphere, ray_origin, ray_direction)
+                
+                if location is not None:
+                    mouse_event_handler(context, event)
+                    context.area.tag_redraw()
+                    return {'RUNNING_MODAL'}
+                return {'PASS_THROUGH'}
             
-            ray_origin = view3d_utils.region_2d_to_origin_3d(region, region_3d, mouse_coord)
-            ray_direction = view3d_utils.region_2d_to_vector_3d(region, region_3d, mouse_coord)
-            location, _, _ = find_interior_surface(sphere, ray_origin, ray_direction)
-            
-            if location is not None:
-                mouse_event_handler(context, event)
-                return {'RUNNING_MODAL'}
-            return {'PASS_THROUGH'}
+            elif event.value == 'RELEASE':
+                if _is_painting:
+                    mouse_event_handler(context, event)
+                    context.area.tag_redraw()
+                return {'PASS_THROUGH'}
         
-        elif event.type == 'LEFTMOUSE' and event.value == 'RELEASE':
+        elif event.type == 'MOUSEMOVE':
             if _is_painting:
                 mouse_event_handler(context, event)
-            return {'PASS_THROUGH'}
-        
-        elif event.type == 'MOUSEMOVE' and _is_painting:
-            mouse_event_handler(context, event)
+                context.area.tag_redraw()
+                return {'RUNNING_MODAL'}
             return {'PASS_THROUGH'}
         
         return {'PASS_THROUGH'}
     
     def invoke(self, context, event):
+        if context.area.type != 'VIEW_3D':
+            self.report({'WARNING'}, "View3D not found, cannot run operator")
+            return {'CANCELLED'}
+        
         wm = context.window_manager
-        self._timer = wm.event_timer_add(0.1, window=context.window)
+        self._timer = wm.event_timer_add(0.05, window=context.window)  # 50ms for better responsiveness
         wm.modal_handler_add(self)
+        context.area.tag_redraw()
         return {'RUNNING_MODAL'}
     
     def cancel(self, context):
         if self._timer:
             context.window_manager.event_timer_remove(self._timer)
             self._timer = None
+        if context.area:
+            context.area.tag_redraw()
 
 
 # =============================================================================

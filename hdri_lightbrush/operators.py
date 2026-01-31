@@ -6,6 +6,7 @@ Canvas creation and management operators for HDRI LightBrush
 import bpy
 from bpy.types import Operator
 import numpy as np
+from .utils import refresh_canvas_texture
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -59,6 +60,9 @@ class HDRI_OT_create_canvas(Operator):
         pixels[:, :, 3] = 1.0  # Full alpha
         canvas_image.pixels[:] = pixels.flatten()
         canvas_image.update()
+        
+        # Force GPU texture refresh for Blender 5.0
+        refresh_canvas_texture(canvas_image)
     
     def setup_viewport_layout(self, context):
         """Split viewport and setup Image Editor for canvas display"""
@@ -117,9 +121,8 @@ class HDRI_OT_clear_canvas(Operator):
         canvas_image.pixels[:] = pixels
         canvas_image.update()
         
-        # Redraw
-        for area in context.screen.areas:
-            area.tag_redraw()
+        # Force GPU texture refresh for Blender 5.0
+        refresh_canvas_texture(canvas_image)
         
         self.report({'INFO'}, "Canvas cleared")
         return {'FINISHED'}
@@ -170,9 +173,8 @@ class HDRI_OT_add_light(Operator):
         canvas_image.pixels[:] = pixels.flatten()
         canvas_image.update()
         
-        # Redraw
-        for area in context.screen.areas:
-            area.tag_redraw()
+        # Force GPU texture refresh for Blender 5.0
+        refresh_canvas_texture(canvas_image)
         
         self.report({'INFO'}, f"Added {props.light_shape.lower()} light")
         return {'FINISHED'}

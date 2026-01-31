@@ -128,6 +128,12 @@ def create_painting_sphere_material(obj, canvas_image=None):
     
     if canvas_image:
         env_texture.image = canvas_image
+        # Force GPU texture refresh for Blender 5.0
+        try:
+            canvas_image.gl_free()
+            canvas_image.gl_load()
+        except Exception:
+            pass
     
     return mat
 
@@ -135,7 +141,15 @@ def create_painting_sphere_material(obj, canvas_image=None):
 def setup_sphere_material(obj, canvas_image=None):
     """Setup transparent HDRI material for sphere"""
     obj.data.materials.clear()
-    return create_painting_sphere_material(obj, canvas_image)
+    mat = create_painting_sphere_material(obj, canvas_image)
+    
+    # Force material and node tree update for Blender 5.0
+    if mat:
+        mat.update_tag()
+        if mat.use_nodes and mat.node_tree:
+            mat.node_tree.update_tag()
+    
+    return mat
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -205,17 +219,25 @@ def setup_sphere_for_painting(obj, canvas_image):
     bpy.ops.object.mode_set(mode='TEXTURE_PAINT')
     bpy.context.scene.tool_settings.image_paint.mode = 'MATERIAL'
     
-    # Setup brush
-    if "HDRI_Brush" not in bpy.data.brushes:
-        brush = bpy.data.brushes.new("HDRI_Brush")
-        brush.size = 100
-        brush.strength = 0.8
-        brush.use_alpha = False
-        brush.color = (1.0, 1.0, 1.0)
-    else:
-        brush = bpy.data.brushes["HDRI_Brush"]
+    # Use existing brush from image_paint - whatever user has set in 2D Image Editor
+    # Don't create custom brush - let user control everything from Image Editor
     
-    bpy.context.tool_settings.image_paint.brush = brush
+    # Check Blender version for compatibility
+    blender_version = bpy.app.version
+    if blender_version >= (5, 0, 0):
+        # Blender 5.0+: Use workspace tool system with temp_override
+        try:
+            for window in bpy.context.window_manager.windows:
+                for area in window.screen.areas:
+                    if area.type == 'VIEW_3D':
+                        for region in area.regions:
+                            if region.type == 'WINDOW':
+                                with bpy.context.temp_override(window=window, area=area, region=region):
+                                    bpy.ops.wm.tool_set_by_id(name="builtin_brush.TexturePaint")
+                                break
+                        break
+        except Exception:
+            pass
     
     if canvas_image:
         bpy.context.scene.tool_settings.image_paint.canvas = canvas_image
@@ -299,6 +321,23 @@ class HDRI_OT_sphere_add(bpy.types.Operator):
                 self.report({'INFO'}, "Preview Sphere added")
         except Exception:
             self.report({'INFO'}, "Preview Sphere added")
+        
+        # Force full viewport refresh for Blender 5.0
+        if canvas_image:
+            try:
+                canvas_image.update()
+                canvas_image.gl_free()
+                canvas_image.gl_load()
+            except Exception:
+                pass
+        
+        # Force depsgraph update
+        context.view_layer.update()
+        bpy.context.view_layer.depsgraph.update()
+        
+        # Tag all viewports for redraw
+        for area in context.screen.areas:
+            area.tag_redraw()
         
         return {'FINISHED'}
 

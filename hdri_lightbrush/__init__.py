@@ -1,7 +1,7 @@
 bl_info = {
     "name": "HDRI LightBrush",
     "author": "Tamas Laszlo (planabit@gmail.com)",
-    "version": (1, 0, 1),
+    "version": (1, 2, 0),
     "blender": (4, 2, 0),
     "location": "3D Viewport > Sidebar > HDRI LightBrush",
     "description": "Professional HDRI environment editor - Paint directly on world-representing sphere for precise studio lighting control",

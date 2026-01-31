@@ -239,6 +239,51 @@ def blend_colors(base_color, paint_color, blend_mode='NORMAL', opacity=1.0):
     
     return (result_r, result_g, result_b, result_a)
 
+
+def refresh_canvas_texture(canvas_image=None, sphere=None):
+    """Force refresh canvas texture on GPU and in viewport.
+    
+    This is critical for Blender 5.0 where texture updates need explicit GPU refresh.
+    """
+    import bpy
+    
+    if canvas_image is None:
+        canvas_image = bpy.data.images.get("HDRI_Canvas")
+    if sphere is None:
+        sphere = bpy.data.objects.get("HDRI_Preview_Sphere")
+    
+    if canvas_image:
+        # Update image data
+        canvas_image.update()
+        # Force GPU texture refresh - critical for Blender 5.0
+        try:
+            canvas_image.gl_free()
+            canvas_image.gl_load()
+        except Exception:
+            pass  # gl_free/gl_load may not be available in all contexts
+    
+    if sphere and sphere.active_material:
+        sphere.active_material.update_tag()
+        if sphere.active_material.use_nodes:
+            sphere.active_material.node_tree.update_tag()
+    
+    # Force depsgraph update
+    try:
+        if bpy.context.view_layer:
+            bpy.context.view_layer.update()
+    except Exception:
+        pass
+    
+    # Tag all 3D viewports for redraw
+    try:
+        for window in bpy.context.window_manager.windows:
+            for area in window.screen.areas:
+                if area.type == 'VIEW_3D':
+                    area.tag_redraw()
+    except Exception:
+        pass
+
+
 def register():
     """Register utils module"""
     pass

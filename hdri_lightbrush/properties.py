@@ -104,6 +104,60 @@ class HDRIStudioProperties(PropertyGroup):
         max=10.0
     )
     
+    # ═══════════════════════════════════════════════════════
+    # 3D PAINT BRUSH SETTINGS (Blender 5.0 compatibility)
+    # ═══════════════════════════════════════════════════════
+    paint_color: FloatVectorProperty(
+        name="Paint Color",
+        description="Brush color for 3D painting",
+        subtype='COLOR',
+        size=3,
+        min=0.0,
+        max=1.0,
+        default=(1.0, 1.0, 1.0)
+    )
+    
+    paint_size: IntProperty(
+        name="Brush Size",
+        description="Radius of the brush in pixels",
+        default=70,
+        min=1,
+        max=500,
+        subtype='PIXEL'
+    )
+    
+    paint_strength: FloatProperty(
+        name="Strength",
+        description="Brush strength/opacity",
+        default=1.0,
+        min=0.0,
+        max=1.0,
+        subtype='FACTOR'
+    )
+    
+    paint_hardness: FloatProperty(
+        name="Hardness",
+        description="Brush edge hardness (0=soft, 1=hard)",
+        default=0.5,
+        min=0.0,
+        max=1.0,
+        subtype='FACTOR'
+    )
+    
+    paint_blend: EnumProperty(
+        name="Blend Mode",
+        description="How the brush blends with existing colors",
+        items=[
+            ('MIX', "Mix", "Normal blend - replaces color"),
+            ('ADD', "Add", "Adds color (brightens)"),
+            ('MULTIPLY', "Multiply", "Multiplies colors (darkens)"),
+            ('LIGHTEN', "Lighten", "Only lightens pixels"),
+            ('DARKEN', "Darken", "Only darkens pixels"),
+            ('ERASE', "Erase", "Erases to black"),
+        ],
+        default='MIX'
+    )
+    
     # Canvas display properties
     canvas_zoom: FloatProperty(
         name="Zoom",

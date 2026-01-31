@@ -14,21 +14,15 @@ except ImportError:
     HAS_PSUTIL = False
     print("Note: psutil not available, using basic process management")
 
-def find_blender_exe():
-    """Find Blender executable in common installation locations"""
-    possible_paths = [
-        r"C:\Program Files\Blender Foundation\Blender 4.2\blender.exe",
-        r"C:\Program Files\Blender Foundation\Blender 4.1\blender.exe", 
-        r"C:\Program Files\Blender Foundation\Blender 4.0\blender.exe",
-        r"C:\Program Files\Blender Foundation\Blender 3.6\blender.exe",
-        r"C:\Program Files\Blender Foundation\Blender 3.5\blender.exe"
-    ]
-    
-    for path in possible_paths:
-        if os.path.exists(path):
-            return path
-            
-    return None
+def find_all_blender_exes():
+    """Find all Blender executables in common installation locations"""
+    base_dir = r"C:\Program Files\Blender Foundation"
+    found = []
+    for root, dirs, files in os.walk(base_dir):
+        for file in files:
+            if file.lower() == "blender.exe":
+                found.append(os.path.join(root, file))
+    return found
 
 def is_blender_running():
     """Check if Blender is currently running"""
@@ -153,7 +147,7 @@ def make_versioned_path(path: Path) -> Path:
     return path
 
 # CONFIGURATION
-BLENDER_EXE = find_blender_exe()
+BLENDER_EXES = find_all_blender_exes()
 ADDON_SRC = Path(__file__).parent.parent / "hdri_lightbrush"
 ADDON_ZIP = ADDON_SRC.parent / "hdri_lightbrush.zip"
 
@@ -168,44 +162,109 @@ print(f"📁 Source: {ADDON_SRC}")
 print(f"📦 Target: {ADDON_ZIP}")
 print(f"📦 Share Zip: {DIST_ZIP}")
 
-# Check if source exists
-if not ADDON_SRC.exists():
-    print(f"❌ Error: Addon source directory not found: {ADDON_SRC}")
+if not BLENDER_EXES:
+    print("❌ Error: Could not find any Blender executables!")
+    print("   Please install Blender or modify the script with the correct path.")
     sys.exit(1)
 
-# Zip the addon
-print("📦 Creating addon zip...")
-if ADDON_ZIP.exists():
-    ADDON_ZIP.unlink()
-    print("   Removed existing zip file")
+for BLENDER_EXE in BLENDER_EXES:
+    # Create a temporary directory for correct zip structure
+    temp_dir = os.path.join(os.path.dirname(ADDON_ZIP), f"temp_build_{os.path.basename(BLENDER_EXE)}")
+    if os.path.exists(temp_dir):
+        shutil.rmtree(temp_dir)
+    os.makedirs(temp_dir)
 
-# Create a temporary directory for correct zip structure
-temp_dir = os.path.join(os.path.dirname(ADDON_ZIP), "temp_build")
-if os.path.exists(temp_dir):
-    shutil.rmtree(temp_dir)
-os.makedirs(temp_dir)
+    # Copy addon files to temp directory with correct structure
+    temp_addon_dir = os.path.join(temp_dir, "hdri_lightbrush")
+    print(f"   Creating temporary structure in {temp_dir}...")
+    shutil.copytree(ADDON_SRC, temp_addon_dir)
+    print(f"✅ Using Blender from: {BLENDER_EXE}")
+    print("🔧 Installing addon...")
+    script = f"""
+import bpy
+import sys
+import os
 
-# Copy addon files to temp directory with correct structure
-temp_addon_dir = os.path.join(temp_dir, "hdri_lightbrush")
-print(f"   Creating temporary structure in {temp_dir}...")
-shutil.copytree(ADDON_SRC, temp_addon_dir)
+print("🧹 Deep cleaning Blender addon cache...")
 
-# Exclude unnecessary files from zip
+# Remove old addon if exists
+addon_name = "hdri_lightbrush"
+addon_path = os.path.join(bpy.utils.user_resource('SCRIPTS'), "addons", addon_name)
+
+if os.path.exists(addon_path):
+    import shutil
+    try:
+        shutil.rmtree(addon_path)
+        print(f"  Removed old addon: {{addon_path}}")
+    except Exception as e:
+        print(f"  Warning: Could not remove old addon: {{e}}")
+
+# Disable addon if enabled
+try:
+    bpy.ops.preferences.addon_disable(module=addon_name)
+    print(f"  Disabled existing addon: {{addon_name}}")
+except:
+    pass
+
+# Install addon from zip
+zip_path = r"{ADDON_ZIP}"
+print(f"  Installing from: {{zip_path}}")
+
+try:
+    bpy.ops.preferences.addon_install(filepath=zip_path, overwrite=True)
+    print("  ✅ Addon installed successfully")
+except Exception as e:
+    print(f"  ❌ Installation failed: {{e}}")
+    sys.exit(1)
+
+# Enable the addon
+print("  Enabling addon...")
+try:
+    bpy.ops.preferences.addon_enable(module=addon_name)
+    print("  ✅ Addon enabled successfully")
+except Exception as e:
+    print(f"  ❌ Failed to enable addon: {{e}}")
+    sys.exit(1)
+
+# Verify addon is enabled
+if addon_name in bpy.context.preferences.addons:
+    print(f"  ✅ Verified: {{addon_name}} is enabled")
+else:
+    print(f"  ❌ Addon {{addon_name}} not found in enabled addons!")
+    sys.exit(1)
+
+# Save user preferences to persist the enabled state
+try:
+    bpy.ops.wm.save_userpref()
+    print("  ✅ User preferences saved")
+except Exception as e:
+    print(f"  ⚠️ Could not save preferences: {{e}}")
+
+print('')
+print('🎉 Installation complete!')
+print('')
+print('📍 To use HDRI LightBrush:')
+print('   1. Open 3D Viewport')
+print("   2. Press 'N' to show sidebar")
+print("   3. Find 'HDRI LightBrush' tab")
+print('   4. Start creating and painting HDRIs!')
+"""
+
+# Exclude unnecessary files from zip (do this in the main script, not in the Blender script string)
 exclude_patterns = ['__pycache__', '.pyc', '.git', '.gitignore', 'test_*']
 for root, dirs, files in os.walk(temp_addon_dir):
-    # Remove __pycache__ directories
     dirs[:] = [d for d in dirs if not any(pattern in d for pattern in exclude_patterns)]
-    # Remove .pyc files
-    for file in files[:]:
-        if any(pattern in file for pattern in exclude_patterns):
-            os.remove(os.path.join(root, file))
-            print(f"   Excluded: {file}")
+    for filename in files[:]:
+        if any(pattern in filename for pattern in exclude_patterns):
+            os.remove(os.path.join(root, filename))
+            print(f"   Excluded: {filename}")
 
 # Create zip from temp directory
 zip_base = str(ADDON_ZIP).replace(".zip", "")
 print("   Creating zip file...")
 shutil.make_archive(zip_base, "zip", temp_dir)
 print(f"✅ Addon zipped successfully to: {ADDON_ZIP}")
+
 
 # Also persist a copy for manual installation / sharing
 try:
@@ -218,151 +277,7 @@ except Exception as e:
 # Clean up temp directory
 shutil.rmtree(temp_dir)
 print("   Cleaned up temporary files.")
-
-# Step 1: Force close Blender and clean cache
-print("🔄 Preparing clean installation environment...")
 close_blender()
-clean_blender_cache()
-print("✅ Environment prepared")
-
-# Check if Blender was found
-if not BLENDER_EXE:
-    print("❌ Error: Could not find Blender executable!")
-    print("   Please install Blender or modify the script with the correct path.")
-    print("   Expected locations:")
-    possible_paths = [
-        r"C:\Program Files\Blender Foundation\Blender 4.2\blender.exe",
-        r"C:\Program Files\Blender Foundation\Blender 4.1\blender.exe", 
-        r"C:\Program Files\Blender Foundation\Blender 4.0\blender.exe"
-    ]
-    for path in possible_paths:
-        print(f"   - {path}")
-    input("Press Enter to exit...")
-    sys.exit(1)
-
-print(f"✅ Using Blender from: {BLENDER_EXE}")
-
-# Install addon
-print("🔧 Installing addon...")
-script = f"""
-import bpy
-import sys
-
-print("🧹 Deep cleaning Blender addon cache...")
-
-# Force clear module cache
-modules_to_clear = [name for name in sys.modules.keys() if 'hdri_lightbrush' in name or 'hdri_light_studio' in name]
-for module_name in modules_to_clear:
-    del sys.modules[module_name]
-    print(f"   Cleared module: {{module_name}}")
-
-# Remove old addon installations
-try:
-    import addon_utils
-    addon_utils.disable("hdri_lightbrush", default_set=True)
-    addon_utils.disable("hdri_light_studio", default_set=True)
-    addon_utils.disable("hdri_light_studio_v2", default_set=True)
-    print("   Disabled old versions")
-except:
-    pass
-
-print("📦 Installing fresh addon version...")
-try:
-    bpy.ops.preferences.addon_install(filepath=r"{ADDON_ZIP}", overwrite=True)
-    print("✅ Addon installed successfully")
-except Exception as e:
-    print(f"❌ Installation failed: {{str(e)}}")
-    # Manual installation fallback
-    try:
-        import zipfile
-        import os
-        addon_path = bpy.utils.user_resource('SCRIPTS', "addons")
-        with zipfile.ZipFile(r"{ADDON_ZIP}", 'r') as zip_ref:
-            zip_ref.extractall(addon_path)
-        print("✅ Manual installation successful")
-    except Exception as e2:
-        print(f"❌ Manual installation failed: {{str(e2)}}")
-        sys.exit(1)
-
-print("🔌 Enabling addon with module refresh...")
-try:
-    # Force refresh modules before enabling
-    import importlib
-    import sys
-    
-    # Try to import and reload the addon module
-    try:
-        if 'hdri_lightbrush' in sys.modules:
-            importlib.reload(sys.modules['hdri_lightbrush'])
-    except:
-        pass
-    
-    # Enable the addon (using zip filename as module name)
-    bpy.ops.preferences.addon_enable(module="hdri_lightbrush")
-    print("✅ Addon enabled successfully")
-except Exception as e:
-    print(f"⚠️  Error enabling addon: {{str(e)}}")
-    # Try manual registration as fallback
-    try:
-        import hdri_lightbrush
-        hdri_lightbrush.register()
-        print("✅ Addon manually registered")
-    except Exception as e2:
-        print(f"❌ Manual registration failed: {{str(e2)}}")
-        print("   Installation may still be successful - check manually")
-
-print("🔍 Verifying installation...")
-try:
-    # Check if the addon classes are registered
-    if hasattr(bpy.ops, 'hdrils'):
-        print("✅ HDRI LightBrush operators are available")
-        
-        # Check specific operators
-        if hasattr(bpy.ops.hdrils, 'create_canvas'):
-            print("✅ Canvas creation operator found")
-        if hasattr(bpy.ops.hdrils, 'paint_modal'):
-            print("✅ Paint modal operator found")
-        if hasattr(bpy.ops.hdrils, 'place_light_shape'):
-            print("✅ Light shape operator found")
-    else:
-        print("⚠️  HDRI LightBrush operators not found")
-        
-    # Check properties
-    if hasattr(bpy.context.scene, 'hdrils_props'):
-        print("✅ Scene properties registered")
-    else:
-        print("⚠️  Scene properties not found")
-        
-    # Check UI panels
-    panel_found = False
-    for cls in bpy.types.Panel.__subclasses__():
-        if hasattr(cls, 'bl_idname') and 'HDRI_PT' in cls.bl_idname:
-            panel_found = True
-            break
-    
-    if panel_found:
-        print("✅ UI panels registered")
-    else:
-        print("⚠️  UI panels not found")
-        
-except Exception as e:
-    print(f"⚠️  Verification error: {{str(e)}}")
-
-print("💾 Saving user preferences...")
-try:
-    bpy.ops.wm.save_userpref()
-    print("✅ Preferences saved")
-except Exception as e:
-    print(f"⚠️  Warning: Could not save preferences: {{str(e)}}")
-
-print("🎉 Installation complete!")
-print("")
-print("📍 To use HDRI LightBrush:")
-print("   1. Open 3D Viewport")
-print("   2. Press 'N' to show sidebar")
-print("   3. Find 'HDRI LightBrush' tab")
-print("   4. Start creating and painting HDRIs!")
-"""
 
 print("   Running Blender installation script...")
 result = subprocess.run([BLENDER_EXE, "--background", "--python-expr", script],
@@ -379,34 +294,24 @@ if result.stderr:
 if result.returncode != 0:
     print("❌ Installation failed!")
     print(f"   Return code: {result.returncode}")
-    sys.exit(1)
 else:
     print("✅ Installation successful!")
 
-# Step 2: Automatic restart of Blender 
-print("\n� Restarting Blender automatically...")
-
-# Clean up zip file automatically
-try:
-    ADDON_ZIP.unlink()
-    print("✅ Installation files cleaned up")
-except Exception as e:
-    print(f"⚠️  Could not delete zip: {e}")
-
-# Start Blender automatically
-print("� Starting Blender with addon ready...")
-subprocess.Popen([BLENDER_EXE])
-
-# Wait for Blender to start
-wait_for_blender_startup()
-
-print("✅ Blender restarted successfully!")
-print("\n🎨 HDRI LightBrush is ready!")
+# After all installations complete, start all Blender versions
+print("\n" + "=" * 50)
+print("🚀 Launching all Blender versions...")
 print("=" * 50)
-print("📍 To use the addon:")
-print("   1. Open 3D Viewport")
-print("   2. Press 'N' to show sidebar")  
-print("   3. Find 'HDRI LightBrush' tab")
-print("   4. Click 'Create 2K Canvas' or 'Create 4K Canvas'")
-print("   5. Start painting your HDRI!")
-print("\n� Happy HDRI editing!")
+
+launched_blenders = []
+for blender_exe_path in BLENDER_EXES:
+    try:
+        subprocess.Popen([blender_exe_path])
+        launched_blenders.append(blender_exe_path)
+        print(f"  ✅ Started: {blender_exe_path}")
+        time.sleep(1)  # Small delay between launches
+    except Exception as e:
+        print(f"  ❌ Failed to start {blender_exe_path}: {e}")
+
+print(f"\n🎉 Launched {len(launched_blenders)} Blender instance(s)")
+
+print(f"\n🎉 Launched {len(launched_blenders)} Blender instance(s)")

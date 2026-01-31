@@ -97,16 +97,38 @@ class HDRI_PT_main_panel(Panel):
             row = step2_box.row()
             row.label(text="Click & drag on sphere to paint", icon='INFO')
             
-            # Info about brush settings
-            info_box = step2_box.box()
-            info_box.label(text="Configure brush in Image Editor:", icon='BRUSH_DATA')
-            col = info_box.column(align=True)
-            col.label(text="• Radius: Brush size")
-            col.label(text="• Strength: Paint intensity")
-            col.label(text="• Hardness: Edge softness")
-            col.label(text="• Color: Paint color")
+            # ═══════════════════════════════════════════════════════
+            # BRUSH SETTINGS BOX
+            # ═══════════════════════════════════════════════════════
+            brush_box = step2_box.box()
+            brush_box.label(text="Brush Settings", icon='BRUSH_DATA')
+            
+            # Color picker (large, prominent)
+            col = brush_box.column()
+            col.template_color_picker(props, "paint_color", value_slider=True)
+            row = brush_box.row()
+            row.prop(props, "paint_color", text="")
+            
+            brush_box.separator()
+            
+            # Size with slider
+            row = brush_box.row(align=True)
+            row.prop(props, "paint_size", text="Size", slider=True)
+            
+            # Strength with slider  
+            row = brush_box.row(align=True)
+            row.prop(props, "paint_strength", text="Strength", slider=True)
+            
+            # Hardness with slider
+            row = brush_box.row(align=True)
+            row.prop(props, "paint_hardness", text="Hardness", slider=True)
+            
+            # Blend mode dropdown
+            row = brush_box.row()
+            row.prop(props, "paint_blend", text="Blend")
             
             # Scale slider
+            step2_box.separator()
             row = step2_box.row()
             row.prop(sphere_props, "sphere_scale", text="Sphere Scale", slider=True)
             
